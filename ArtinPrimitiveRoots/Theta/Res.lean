@@ -32,6 +32,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.lagrangian_vector_selector
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.bigCell_normalized_intertwine
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.tame_lagrangian_vector_selector
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.sphWeyl_lam_zero
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.sphC_right_root_smooth
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_descent
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_whittaker
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.thetaWhit_section_multilinear
