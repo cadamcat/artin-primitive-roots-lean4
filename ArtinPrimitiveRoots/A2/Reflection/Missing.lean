@@ -16449,7 +16449,19 @@ private theorem rf_pairing_reflected_term_reindex
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
   Bm D S A ϑ (cgen R) (r.m : F) Z = ∑' p, reflectedTerm R (rowClass R r) r.h r.d Z p := by
-  sorry
+  intro r Z hZ
+  refine ⟨rf_reflected_row_summable R r Z hZ, ?_⟩
+  calc
+    Bm D S A ϑ (cgen R) (r.m : F) Z =
+        ∑' q : FrozenIndex R r.h × S.SqfExtIdeal,
+          ∫ T in Set.Ioi (0 : ℝ), rf_pairing_grouped_kernel_term R r q Z T :=
+      rf_pairing_Bm_grouped_kernel_integrals R r Z hZ
+    _ = ∑' q : FrozenIndex R r.h × S.SqfExtIdeal,
+        ∑' sd : Bd.B, ∑' sc : Bd.B,
+          reflectedTerm R (rowClass R r) r.h r.d Z (q.1, sd, sc, q.2) :=
+      tsum_congr (fun q => rf_pairing_grouped_kernel_reflected_term R r q Z hZ)
+    _ = ∑' p, reflectedTerm R (rowClass R r) r.h r.d Z p :=
+      rf_pairing_reflected_term_reindex R r Z hZ
 /-- Retained and discarded masses use the same dyadic threshold, with the row support explicit. -/
 def splitReflection (retained : Bool) (υ : UnitSix S) (h d : S.ExtIdeal) (Z R0 : ℝ) : ℂ :=
   if Squarefree d.1 ∧ IsCoprime d.1 h.1 then
