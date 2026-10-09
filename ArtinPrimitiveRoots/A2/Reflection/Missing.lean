@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A2.Interface
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_LOCAL.Classification
 import ArtinPrimitiveRoots.A2.Proofs.«A2-BRIDGES».All
 import ArtinPrimitiveRoots.Theta.Assemble
 import Mathlib.Analysis.Distribution.SchwartzSpace.Fourier
@@ -10335,6 +10336,64 @@ def groupedExterior {h : S.ExtIdeal} (t : FrozenIndex R h) (d : S.ExtIdeal) (ν 
     ∏ᶠ v : FinPlace F, if v ∉ S.Sf ∧ v ∉ R.exterior.support d ∧ v ∉ R.exterior.support t.f then
       R.T.Wv v (R.C.a v (toLoc v ν)) else 1
 
+private theorem rf_active_spherical_table
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (v : FinPlace F) (hv : v ∉ S.Sf) (ν : Fˣ) :
+    R.T.Wv v (R.C.a v (toLoc v ν)) =
+      sphericalTable D A v (ordv v (toLoc v ν)) (unitPart v (toLoc v ν)) := by
+  have ht := Theta.thFactorB_unitPart_isLocUnit v (toLoc v ν)
+  have htable := R.T.Wv_table v hv (ordv v (toLoc v ν))
+    (unitPart v (toLoc v ν)) ht.1 ht.2
+  have hfactor : toLoc v (Units.mk0 (unif v) (unif_ne_zero v)) ^
+      ordv v (toLoc v ν) * unitPart v (toLoc v ν) = toLoc v ν := by
+    simpa only [Theta.unifLoc] using Theta.unitPart_factor v (toLoc v ν)
+  rw [hfactor] at htable
+  exact htable
+
+private theorem rf_active_normalized_unit
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (v : FinPlace F) (hv : v ∉ S.Sf) (ν : Fˣ) :
+    Theta.IsLocUnit v (toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν))) := by
+  let t := toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν))
+  have htord : ordv v t = 0 := by
+    dsimp [t]
+    rw [rf_local_ordv_mul, rf_local_ordv_zpow, rf_local_primeGen_ord R v hv]
+    ring
+  have htval : Valued.v (t : v.adicCompletion F) = 1 := by
+    rw [rf_valued_eq_exp_neg_ordv, htord]
+    simp
+  have htinv : Valued.v ((t⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+    have hinv : Valued.v ((t⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+        (Valued.v (t : v.adicCompletion F))⁻¹ := by simp
+    rw [hinv, htval]
+    simp
+  constructor
+  · rw [HeightOneSpectrum.mem_adicCompletionIntegers, htval]
+  · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    exact htinv.le
+
+private theorem rf_active_local_support
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (v : FinPlace F) (hv : v ∉ S.Sf) (j : Fin 6) (e : ℤ)
+    (t : (v.adicCompletion F)ˣ) (ht : Theta.IsLocUnit v t)
+    (h : localR R v j e t ≠ 0) :
+    0 ≤ e ∧ (e % 3 = 0 ∨ e % 3 = 1) ∧ (j = 1 → e = 0) := by
+  rcases lem_reflection_local_Weyl R v hv j e t ht.1 ht.2 with
+    ⟨hneg, _, hpos1, _, _, _, _, hunit, _, hmod⟩
+  have he : 0 ≤ e := by
+    by_contra hn
+    exact h (hneg (lt_of_not_ge hn))
+  have hmod2 : e % 3 ≠ 2 := by
+    intro htwo
+    have hz := hmod he htwo
+    rw [hunit he, hz, zero_mul] at h
+    exact h rfl
+  refine ⟨he, ?_, ?_⟩
+  · omega
+  · intro hj
+    by_contra hn
+    exact h (hpos1 hj (by omega))
+
 /-- rf:active-support, 04:433-503. The fixed digit partition determines each frequency class. -/
 theorem rf_active_support_frequencies :
   ∀ r (f : S.ExtIdeal), activeFactor R r.h f → ∀ ν : Fˣ,
@@ -10349,7 +10408,88 @@ theorem rf_active_support_frequencies :
       activeNumerator R f acn.1 ∧ IsCoprime (acn.2.1.1 * acn.2.2.1) (r.d.1 * f.1) ∧
         ∃ ε : S.US, ν = (ε : Fˣ) * bc.gen acn.1 * bc.gen (R.exterior.ofSqf acn.2.1) *
           bc.gen acn.2.2 ^ 3 / (bc.gen r.d * bc.gen f) ^ 2 := by
-  sorry
+  classical
+  intro r f hf ν
+  dsimp only
+  intro hcoeff
+  have hNZ := mul_ne_zero_iff.mp hcoeff
+  have hF := (mul_ne_zero_iff.mp hNZ.1).2
+  have hD := (mul_ne_zero_iff.mp (mul_ne_zero_iff.mp hNZ.1).1).2
+  have hTail := hNZ.2
+  have hdis (v : FinPlace F) (hvd : v ∈ R.exterior.support r.d) :
+      v ∉ R.exterior.support f := by
+    intro hvf
+    have hdh := (R.exterior.mem_support r.h v).mp (hf.2.1 v hvf)
+    have hdd := (R.exterior.mem_support r.d v).mp hvd
+    exact v.prime.not_isUnit (r.coprime.isUnit_of_dvd' hdh hdd)
+  have hDsupport (v : FinPlace F) (hvd : v ∈ R.exterior.support r.d) :
+      ordv v (toLoc v ν) = -2 := by
+    have hvS := R.exterior.support_exterior r.d v hvd
+    have hn := (Finset.prod_ne_zero_iff.mp hD) v hvd
+    let k := ordv v (toLoc v ν)
+    let t := toLoc v ν * toLoc v (primeGen R v) ^ (-k)
+    have ht : Theta.IsLocUnit v t := rf_active_normalized_unit R v hvS ν
+    have hArg : toLoc v (primeGen R v) ^ ((0 : ℤ) - 2) *
+        (toLoc v ν * toLoc v (primeGen R v) ^ (2 : ℕ)) =
+        toLoc v (primeGen R v) ^ ((k + 2) - 2) * t := by
+      dsimp [t]
+      rw [show (k + 2) - 2 = k by omega]
+      simp [zpow_neg, mul_comm, mul_left_comm, mul_assoc]
+    have hR : localR R v 1 0
+        (toLoc v ν * toLoc v (primeGen R v) ^ (2 : ℕ)) =
+        localR R v 1 (k + 2) t := by
+      simp only [localR, hArg]
+    rw [hR] at hn
+    have hh := (rf_active_local_support R v hvS 1 (k + 2) t ht hn).2.2 rfl
+    dsimp [k] at hh
+    omega
+  have hFsupport (v : FinPlace F) (hvf : v ∈ R.exterior.support f) :
+      0 ≤ ordv v (toLoc v ν) + 2 ∧
+        ((ordv v (toLoc v ν) + 2) % 3 = 0 ∨ (ordv v (toLoc v ν) + 2) % 3 = 1) := by
+    have hn := (Finset.prod_ne_zero_iff.mp hF) v hvf
+    have hvS := R.exterior.support_exterior f v hvf
+    have hh := rf_active_local_support R v hvS (digitExponent r v)
+      (ordv v (toLoc v ν) + 2) _ (rf_active_normalized_unit R v hvS ν) hn
+    exact ⟨hh.1, hh.2.1⟩
+  let tail : FinPlace F → ℂ := fun v =>
+    if v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ R.exterior.support f then
+      R.T.Wv v (R.C.a v (toLoc v ν)) else 1
+  have hTailFinite : tail.HasFiniteMulSupport := by
+    apply (ArtinPrimitiveRoots.Proofs.a2_rf_local_sol.ord_finite ν).subset
+    intro v hv
+    simp only [Function.mem_mulSupport] at hv
+    simp only [Function.mem_support]
+    intro hz
+    by_cases hb : v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ R.exterior.support f
+    · have hw : R.T.Wv v (R.C.a v (toLoc v ν)) = 1 := by
+        rw [rf_active_spherical_table R v hb.1 ν, hz]
+        simp [sphericalTable]
+      exact hv (by simp [tail, hb, hw])
+    · exact hv (by simp [tail, hb])
+  have hTsupport (v : FinPlace F) (hvS : v ∉ S.Sf)
+      (hvd : v ∉ R.exterior.support r.d) (hvf : v ∉ R.exterior.support f) :
+      0 ≤ ordv v (toLoc v ν) ∧
+        (ordv v (toLoc v ν) % 3 = 0 ∨ ordv v (toLoc v ν) % 3 = 1) := by
+    have hn : R.T.Wv v (R.C.a v (toLoc v ν)) ≠ 0 := by
+      intro hz
+      apply hTail
+      exact finprod_eq_zero tail v (by simp [tail, hvS, hvd, hvf, hz]) hTailFinite
+    rw [rf_active_spherical_table R v hvS ν] at hn
+    have he : 0 ≤ ordv v (toLoc v ν) := by
+      by_contra h
+      exact hn (by simp [sphericalTable, lt_of_not_ge h])
+    have hm : ordv v (toLoc v ν) % 3 ≠ 2 := by
+      intro h
+      exact hn (by simp [sphericalTable, not_lt.mpr he, h])
+    exact ⟨he, by omega⟩
+  obtain ⟨p, hpA, hpC, hpν⟩ :=
+    ArtinPrimitiveRoots.Proofs.a2_rf_local_sol.classification_exists R.exterior r.d f
+      r.d_squarefree hf.1 hdis ν hDsupport hFsupport hTsupport
+  refine ⟨p, ⟨hpA, hpC, hpν⟩, ?_⟩
+  intro q hq
+  exact ArtinPrimitiveRoots.Proofs.a2_rf_local_sol.classification_unique R.exterior r.d f ν
+    q p hq.1.1 hpA.1 hq.2.1 hpC hq.2.2 hpν
+
 /-- rf:reflected-absolute, 04:659–706. -/
 theorem rf_reflected_absolute :
   ∀ σ : ℝ, 1 / 2 < σ → ∃ C : ℝ, 0 < C ∧ ∀ u ν l, 0 < l →
