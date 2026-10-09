@@ -209,6 +209,110 @@ theorem reciprocal_log_phase_regime_bound
       q hq hqBound a u hPPfreqLower hPPfreqUpper l r hl hlr hr
     simpa [L, Tstar, huModerate] using hHighBound
 
+/-- The high-phase estimate with a fixed absolute logarithmic exponent. -/
+def HighPhaseResidueBound (C₃p : ℝ) : Prop :=
+  ∀ C : ℝ, 0 < C →
+    ∃ C₀ x₀ : ℝ, 0 < C₀ ∧ 2 < x₀ ∧
+      ∀ x : ℝ, x₀ ≤ x →
+        let L := Real.log x
+        let T := Real.log L
+        ∀ N M : ℝ, Real.exp (L / T ^ 2) ≤ N →
+          N ≤ 2 * Real.rpow x 5 → 1 < M → 1 ≤ Real.log M →
+          ∀ d : ℕ, 0 < d → M ≤ (d : ℝ) * N →
+            ∀ q : ℕ, 1 ≤ q → (q : ℝ) ≤ Real.rpow L C →
+              ∀ a : ZMod q, ∀ u : ℝ,
+                Real.exp (L / (2 * T ^ 2)) ≤ |u| →
+                |u| ≤ 4 * Real.rpow x 3 →
+                  ∀ l r : ℝ, N ≤ l → l ≤ r → r ≤ 2 * N →
+                    ‖reciprocalLogResiduePhaseSum d q a u l r‖ ≤
+                      4 * C₀ * (N / (q : ℝ)) / Real.log M *
+                        Real.exp (-L / Real.rpow T C₃p)
+
+/-- Apply the two phase estimates while keeping the global PP exponent fixed. -/
+theorem reciprocal_log_phase_regime_bound_fixed
+    (δ A₀ C₃p : ℝ) (hδ : 0 < δ) (hA₀ : 0 < A₀) (hC₃p : 0 < C₃p)
+    (hHigh : HighPhaseResidueBound C₃p) :
+    ∃ C_m c_m C_p x₀ : ℝ,
+      0 < C_m ∧ 0 < c_m ∧ 0 < C_p ∧ 2 ≤ x₀ ∧
+        ∀ x : ℝ, x₀ ≤ x →
+          let L := Real.log x
+          let Tstar := Real.exp (L / Real.log L ^ 2)
+          ∀ N M : ℝ, Real.rpow x (δ / 2) ≤ N →
+            N ≤ 2 * Real.rpow x 5 → 1 < M → 1 ≤ Real.log M →
+            ∀ d : ℕ, 0 < d → M ≤ (d : ℝ) * N →
+              ∀ q : ℕ, 1 ≤ q → (q : ℝ) ≤ Real.rpow L A₀ →
+                ∀ a : ZMod q, ∀ u : ℝ, 1 ≤ |u| → |u| ≤ Real.rpow x 2 →
+                  ∀ l r : ℝ, N ≤ l → l ≤ r → r ≤ 2 * N →
+                    ‖reciprocalLogResiduePhaseSum d q a u l r‖ ≤
+                      if |u| ≤ Tstar then
+                        4 * C_m * (N / (q : ℝ)) / Real.log M *
+                          (|u|⁻¹ + Real.rpow x (-c_m))
+                      else
+                        4 * C_p * (N / (q : ℝ)) / Real.log M *
+                          Real.exp (-L / Real.rpow (Real.log L) C₃p) := by
+  have hδhalf : 0 < δ / 2 := by positivity
+  obtain ⟨C_m, c_m, x_m, hCm, hcm, hxm, hModerate⟩ :=
+    moderate_reciprocal_log_residue_bound (δ / 2) A₀ hδhalf hA₀
+  obtain ⟨C_p, x_p, hCp, hxp, hHighA⟩ := hHigh A₀ hA₀
+  obtain ⟨x_cut, hxcut, hCut⟩ := high_phase_threshold_below_power δ hδ
+  let x₀ := max 2 (max (max x_m x_p) (max x_cut (Real.exp 2)))
+  refine ⟨C_m, c_m, C_p, x₀, hCm, hcm, hCp, le_max_left _ _, ?_⟩
+  intro x hx
+  dsimp
+  intro N M hN hNupper hM hlogM d hd hMD q hq hqBound a u huLower huUpper l r hl hlr hr
+  rcases max_le_iff.mp hx with ⟨hxTwo, hxCore⟩
+  rcases max_le_iff.mp hxCore with ⟨hxMP, hxCutExp⟩
+  rcases max_le_iff.mp hxMP with ⟨hxM, hxP⟩
+  rcases max_le_iff.mp hxCutExp with ⟨hxCut, hxExpTwo⟩
+  have hlogXtwo : 2 ≤ Real.log x := by
+    calc
+      2 = Real.log (Real.exp 2) := by rw [Real.log_exp]
+      _ ≤ Real.log x := Real.log_le_log (Real.exp_pos 2) hxExpTwo
+  let L : ℝ := Real.log x
+  let Tstar : ℝ := Real.exp (L / Real.log L ^ 2)
+  have hxpos : 0 < x := by linarith
+  have hLpos : 0 < L := by dsimp [L]; positivity
+  have hlogLpos : 0 < Real.log L := Real.log_pos (by dsimp [L]; linarith)
+  have hTstarLower : Real.exp (L / Real.log L ^ 2) ≤ N := by
+    calc
+      Real.exp (L / Real.log L ^ 2) ≤ Real.rpow x (δ / 2) := by
+        simpa [L] using hCut x hxCut
+      _ ≤ N := hN
+  by_cases huModerate : |u| ≤ Tstar
+  · have hModBound := hModerate x hxM N M hN hM hlogM d hd hMD
+      q hq hqBound a u huLower (by simpa [L, Tstar] using huModerate)
+      l r hl hlr hr
+    simpa [L, Tstar, huModerate] using hModBound
+  · have hlogLSqPos : 0 < (Real.log L) ^ 2 := sq_pos_of_pos hlogLpos
+    have hfracEq : L / (2 * (Real.log L) ^ 2) =
+        (1 / 2) * (L / (Real.log L) ^ 2) := by
+      field_simp [ne_of_gt hlogLSqPos]
+      <;> ring
+    have hfrac : L / (2 * (Real.log L) ^ 2) ≤ L / (Real.log L) ^ 2 := by
+      rw [hfracEq]
+      calc
+        (1 / 2 : ℝ) * (L / (Real.log L) ^ 2) ≤
+            1 * (L / (Real.log L) ^ 2) :=
+          mul_le_mul_of_nonneg_right
+            (by norm_num : (1 / 2 : ℝ) ≤ 1)
+            (div_nonneg hLpos.le hlogLSqPos.le)
+        _ = L / (Real.log L) ^ 2 := by ring
+    have hPPfreqLower :
+        Real.exp (L / (2 * (Real.log L) ^ 2)) ≤ |u| := by
+      have hhalf : Real.exp (L / (2 * (Real.log L) ^ 2)) ≤ Tstar := by
+        dsimp [Tstar]
+        exact Real.exp_le_exp.mpr hfrac
+      exact hhalf.trans (le_of_lt (lt_of_not_ge huModerate))
+    have hxgeone : 1 ≤ x := by linarith
+    have hpow23 : Real.rpow x 2 ≤ Real.rpow x 3 :=
+      Real.rpow_le_rpow_of_exponent_le hxgeone (by norm_num)
+    have hpow3nonneg : 0 ≤ Real.rpow x 3 := Real.rpow_nonneg hxpos.le _
+    have hpowUpper : Real.rpow x 2 ≤ 4 * Real.rpow x 3 := by nlinarith
+    have hPPfreqUpper : |u| ≤ 4 * Real.rpow x 3 := huUpper.trans hpowUpper
+    have hHighBound := hHighA x hxP N M hTstarLower hNupper hM hlogM d hd hMD
+      q hq hqBound a u hPPfreqLower hPPfreqUpper l r hl hlr hr
+    simpa [L, Tstar, huModerate] using hHighBound
+
 /-- Keep the analytic phase constants fixed while varying the sieve order. -/
 theorem retained_subset_residue_phase_bound_fixed
     (δ A₀ lam C_m c_m C_p C₃p xPhase : ℝ)
@@ -996,8 +1100,10 @@ noncomputable def roughSourceIntervalSum
 /-- The source estimate keeps its analytic constants fixed while the sieve
 order is chosen for each requested logarithmic accuracy. -/
 theorem proxy_high_source_bound
-    (δ A₀ wMin : ℝ) (hδ : 0 < δ) (hA₀ : 0 < A₀) (hwMin : 0 < wMin) :
-    ∃ c_m C₃p K : ℝ, 0 < c_m ∧ 0 < C₃p ∧ 0 < K ∧
+    (δ A₀ wMin C₃p : ℝ)
+    (hδ : 0 < δ) (hA₀ : 0 < A₀) (hwMin : 0 < wMin)
+    (hC₃p : 0 < C₃p) (hHigh : HighPhaseResidueBound C₃p) :
+    ∃ c_m K : ℝ, 0 < c_m ∧ 0 < K ∧
       ∀ A_s : ℝ, 0 < A_s →
         ∃ x₀ : ℝ, 2 ≤ x₀ ∧
           ∀ x : ℝ, x₀ ≤ x →
@@ -1016,15 +1122,15 @@ theorem proxy_high_source_bound
                             |u|⁻¹ + Real.rpow x (-c_m)
                           else
                             Real.exp (-L / Real.rpow (Real.log L) C₃p)) := by
-  obtain ⟨C_m, c_m, C_p, C₃p, xPhase, hCm, hcm, hCp, hC₃p,
-      hxPhase, hPhase⟩ := reciprocal_log_phase_regime_bound δ A₀ hδ hA₀
+  obtain ⟨C_m, c_m, C_p, xPhase, hCm, hcm, hCp, hxPhase, hPhase⟩ :=
+    reciprocal_log_phase_regime_bound_fixed δ A₀ C₃p hδ hA₀ hC₃p hHigh
   obtain ⟨s₀, vMin, xMertens, hs₀, hvMin, hxMertens, hMertens⟩ :=
     rough_mertens_bounds
   let K : ℝ := 4 * max C_m C_p / (vMin ^ 2 * wMin)
   have hK : 0 < K := by
     dsimp [K]
     positivity
-  refine ⟨c_m, C₃p, K, hcm, hC₃p, hK, ?_⟩
+  refine ⟨c_m, K, hcm, hK, ?_⟩
   intro A_s hA_s
   let H : ℝ := A_s + 3
   have hH : 0 < H := by dsimp [H]; linarith

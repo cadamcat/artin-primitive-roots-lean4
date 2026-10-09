@@ -2830,7 +2830,7 @@ theorem prime_high (γ wMax : ℝ) (hγ : 0 < γ) (hw : wMax < 1) :
                           Complex.exp (Complex.I * u * Real.log (m : ℝ)))‖ ≤
                       C₀ * M * Real.rpow (Real.log x) (-A₃) := by
   sorry
-
+set_option maxHeartbeats 2000000 in
 /-- `t2:proxy-high` — 08-type-ii.tex:482-516; the source estimate is also the proof of PD
 Lemma 5.2 (`05-major-arcs.tex:57-125`). -/
 theorem proxy_high :
@@ -2871,7 +2871,389 @@ theorem proxy_high :
                             Real.rpow L C₀ * (|u|⁻¹ + Real.rpow x (-c₀))
                           else Real.rpow L C₀ *
                             Real.exp (-L / Real.rpow (Real.log L) C₃))) := by
-  sorry
+  obtain ⟨C₃, hC₃, hHigh⟩ :=
+    ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.high_reciprocal_log_residue_bound
+  refine ⟨C₃, hC₃, ?_⟩
+  intro δ γ wMin wMax hδ hγ hγwMin hMinMax hwMax A₀ hA₀
+  have hwMinPos : 0 < wMin := lt_trans hγ hγwMin
+  obtain ⟨c₀, K, hc₀, hK, hSourceByAccuracy⟩ :=
+    ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.proxy_high_source_bound
+      δ A₀ wMin C₃ hδ hA₀ hwMinPos hC₃ hHigh
+  obtain ⟨K_D, hK_D, hDensityLip⟩ :=
+    density_regularity.2.1 γ wMin wMax hγ hγwMin hMinMax.le
+  let B_D : ℝ := |roughDensity γ wMin| + K_D * (wMax - wMin) + 1
+  let Q : ℝ → ℝ := fun z => z * roughDensity γ z
+  let B_Q : ℝ := wMax * B_D + 1
+  let K_Q : ℝ := B_D + wMax * K_D + 1
+  let F_Q : ℝ := 2 * (B_Q + K_Q)
+  have hwMaxPos : 0 < wMax := lt_trans hwMinPos hMinMax
+  have hB_D : 0 < B_D := by
+    dsimp [B_D]
+    positivity
+  have hB_Q : 0 < B_Q := by
+    dsimp [B_Q]
+    positivity
+  have hK_Q : 0 < K_Q := by
+    dsimp [K_Q]
+    positivity
+  have hF_Q : 0 < F_Q := by
+    dsimp [F_Q]
+    positivity
+  have hDensityAbs : ∀ z : ℝ, wMin ≤ z → z ≤ wMax →
+      |roughDensity γ z| ≤ B_D := by
+    intro z hzlo hzhi
+    have hLip := hDensityLip z wMin hzlo hzhi le_rfl hMinMax.le
+    have hdist : |z - wMin| ≤ wMax - wMin := by
+      rw [abs_of_nonneg (sub_nonneg.mpr hzlo)]
+      linarith
+    calc
+      |roughDensity γ z| =
+          |(roughDensity γ z - roughDensity γ wMin) + roughDensity γ wMin| := by
+        congr 1 <;> ring
+      _ ≤ |roughDensity γ z - roughDensity γ wMin| +
+            |roughDensity γ wMin| := abs_add_le _ _
+      _ ≤ K_D * |z - wMin| + |roughDensity γ wMin| :=
+        add_le_add hLip (le_refl _)
+      _ ≤ K_D * (wMax - wMin) + |roughDensity γ wMin| := by
+        exact add_le_add
+          (mul_le_mul_of_nonneg_left hdist hK_D.le) (le_refl _)
+      _ ≤ B_D := by dsimp [B_D]; linarith
+  have hQBound : ∀ z : ℝ, wMin ≤ z → z ≤ wMax → |Q z| ≤ B_Q := by
+    intro z hzlo hzhi
+    have hzpos : 0 < z := lt_of_lt_of_le hwMinPos hzlo
+    have hD := hDensityAbs z hzlo hzhi
+    calc
+      |Q z| = z * |roughDensity γ z| := by
+        simp [Q, abs_of_pos hzpos, abs_mul]
+      _ ≤ wMax * |roughDensity γ z| :=
+        mul_le_mul_of_nonneg_right hzhi (abs_nonneg _)
+      _ ≤ wMax * B_D := mul_le_mul_of_nonneg_left hD hwMaxPos.le
+      _ ≤ B_Q := by dsimp [B_Q]; linarith
+  have hQLip : ∀ z₁ z₂ : ℝ, wMin ≤ z₁ → z₁ ≤ wMax →
+      wMin ≤ z₂ → z₂ ≤ wMax → |Q z₁ - Q z₂| ≤ K_Q * |z₁ - z₂| := by
+    intro z₁ z₂ hz₁lo hz₁hi hz₂lo hz₂hi
+    have hz₁pos : 0 < z₁ := lt_of_lt_of_le hwMinPos hz₁lo
+    have hDdiff := hDensityLip z₁ z₂ hz₁lo hz₁hi hz₂lo hz₂hi
+    have hD₂ := hDensityAbs z₂ hz₂lo hz₂hi
+    have hQexpand : Q z₁ - Q z₂ =
+        z₁ * (roughDensity γ z₁ - roughDensity γ z₂) +
+          (z₁ - z₂) * roughDensity γ z₂ := by
+      dsimp [Q]
+      ring
+    have hFirst : |z₁| * |roughDensity γ z₁ - roughDensity γ z₂| ≤
+        (wMax * K_D) * |z₁ - z₂| := by
+      calc
+        _ ≤ wMax * |roughDensity γ z₁ - roughDensity γ z₂| := by
+          rw [abs_of_pos hz₁pos]
+          exact mul_le_mul_of_nonneg_right hz₁hi (abs_nonneg _)
+        _ ≤ wMax * (K_D * |z₁ - z₂|) :=
+          mul_le_mul_of_nonneg_left hDdiff hwMaxPos.le
+        _ = (wMax * K_D) * |z₁ - z₂| := by ring
+    have hSecond : |z₁ - z₂| * |roughDensity γ z₂| ≤
+        B_D * |z₁ - z₂| := by
+      calc
+        _ = |roughDensity γ z₂| * |z₁ - z₂| := by ring
+        _ ≤ B_D * |z₁ - z₂| :=
+          mul_le_mul_of_nonneg_right hD₂ (abs_nonneg (z₁ - z₂))
+    have hCoeff : wMax * K_D + B_D ≤ K_Q := by
+      dsimp [K_Q]
+      linarith
+    calc
+      |Q z₁ - Q z₂| =
+          |z₁ * (roughDensity γ z₁ - roughDensity γ z₂) +
+            (z₁ - z₂) * roughDensity γ z₂| := by rw [hQexpand]
+      _ ≤ |z₁ * (roughDensity γ z₁ - roughDensity γ z₂)| +
+            |(z₁ - z₂) * roughDensity γ z₂| := abs_add_le _ _
+      _ = |z₁| * |roughDensity γ z₁ - roughDensity γ z₂| +
+            |z₁ - z₂| * |roughDensity γ z₂| := by rw [abs_mul, abs_mul]
+      _ ≤ (wMax * K_D + B_D) * |z₁ - z₂| := by
+        calc
+          _ ≤ (wMax * K_D) * |z₁ - z₂| + B_D * |z₁ - z₂| :=
+            add_le_add hFirst hSecond
+          _ = (wMax * K_D + B_D) * |z₁ - z₂| := by ring
+      _ ≤ K_Q * |z₁ - z₂| :=
+        mul_le_mul_of_nonneg_right hCoeff (abs_nonneg _)
+  let C₀ : ℝ := 1 + K + F_Q * K
+  have hC₀ : 0 < C₀ := by dsimp [C₀]; positivity
+  have hC₀K : K ≤ C₀ := by dsimp [C₀]; nlinarith [hK, hF_Q]
+  have hC₀FQK : F_Q * K ≤ C₀ := by dsimp [C₀]; nlinarith [hK, hF_Q]
+  obtain ⟨_s₀, vMin, xMertens, _hs₀, hvMin, hxMertens, hMertens⟩ :=
+    ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.rough_mertens_bounds
+  obtain ⟨xSmooth, hSmooth⟩ := Filter.eventually_atTop.mp
+    (Real.tendsto_log_atTop.eventually_ge_atTop
+      (max 1 (max F_Q (1 / wMin))))
+  refine ⟨C₀, c₀, hC₀, hc₀, ?_⟩
+  intro A₄ hA₄
+  let A_s : ℝ := A₄ + 1
+  have hA_s : 0 < A_s := by dsimp [A_s]; linarith
+  obtain ⟨xSource, hxSource, hSourceA⟩ := hSourceByAccuracy A_s hA_s
+  let x₀ := max xSource (max xSmooth xMertens)
+  have hx₀two : 2 ≤ x₀ := by
+    dsimp [x₀]
+    exact le_trans hxSource (le_max_left _ _)
+  refine ⟨x₀, hx₀two, ?_⟩
+  intro x hx
+  dsimp [x₀] at hx
+  rcases max_le_iff.mp hx with ⟨hxSource', hxRest⟩
+  rcases max_le_iff.mp hxRest with ⟨hxSmooth', hxMertens'⟩
+  dsimp
+  intro M hMx hMlogRatio hTwoMlogRatio k hk hkBound χ l r u hMl hlr hr huLower huUpper
+  let L : ℝ := Real.log x
+  let Tstar : ℝ := Real.exp (L / Real.log L ^ 2)
+  let V : ℝ := roughSieveProduct (roughCutoff x)
+  let I : Finset ℕ := (Finset.range (⌊r⌋₊ + 1)).filter
+    (fun m : ℕ => l ≤ (m : ℝ) ∧ (m : ℝ) ≤ r ∧ roughAbove m (roughCutoff x))
+  have hx₂ : 2 ≤ x := le_trans hx₀two hx
+  have hxpos : 0 < x := by linarith
+  have hLpos : 0 < L := by dsimp [L]; exact Real.log_pos (by linarith)
+  have hSmoothX : max 1 (max F_Q (1 / wMin)) ≤ L := by
+    simpa [L] using hSmooth x hxSmooth'
+  have hLone : 1 ≤ L :=
+    le_trans (le_max_left _ _) hSmoothX
+  have hFQleL : F_Q ≤ L := by
+    exact le_trans (le_max_left _ _) (le_trans (le_max_right _ _) hSmoothX)
+  have hInvWmin : 1 / wMin ≤ L := by
+    exact le_trans (le_max_right _ _) (le_trans (le_max_right _ _) hSmoothX)
+  have hWminL : 1 ≤ wMin * L := by
+    have hmul := mul_le_mul_of_nonneg_left hInvWmin hwMinPos.le
+    have hcancel : wMin * (1 / wMin) = 1 := by field_simp [ne_of_gt hwMinPos]
+    nlinarith
+  have hMpos : 0 < M :=
+    lt_of_lt_of_le (Real.rpow_pos_of_pos hxpos δ) hMx
+  have hMlogLower : wMin * L ≤ Real.log M := by
+    have hratio := (Set.mem_Icc.mp hMlogRatio).1
+    simpa [L] using (le_div_iff₀ hLpos).mp hratio
+  have hLog2MUpper : Real.log (2 * M) ≤ wMax * L := by
+    have hratio := (Set.mem_Icc.mp hTwoMlogRatio).2
+    simpa [L] using (div_le_iff₀ hLpos).mp hratio
+  have hlogM : 1 ≤ Real.log M := le_trans hWminL hMlogLower
+  have hlogMpos : 0 < Real.log M := lt_of_lt_of_le (by norm_num) hlogM
+  have hMgt : 1 < M := (Real.log_pos_iff hMpos.le).mp hlogMpos
+  have h2Mpos : 0 < 2 * M := by positivity
+  have hLog2MleL : Real.log (2 * M) ≤ Real.log x := by
+    calc
+      Real.log (2 * M) ≤ wMax * L := hLog2MUpper
+      _ ≤ L := by
+        have hwMaxOne : wMax ≤ 1 := le_of_lt hwMax
+        calc
+          wMax * L ≤ 1 * L := mul_le_mul_of_nonneg_right hwMaxOne hLpos.le
+          _ = L := by ring
+      _ = Real.log x := by rfl
+  have h2MleX : 2 * M ≤ x := by
+    calc
+      2 * M = Real.exp (Real.log (2 * M)) := (Real.exp_log h2Mpos).symm
+      _ ≤ Real.exp (Real.log x) := Real.exp_le_exp.mpr hLog2MleL
+      _ = x := Real.exp_log hxpos
+  have hMleX : M ≤ x := by linarith
+  have hxgeone : 1 ≤ x := by linarith
+  have hxPow5 : x ≤ Real.rpow x 5 := by
+    have hpow := Real.rpow_le_rpow_of_exponent_le hxgeone
+      (by norm_num : (1 : ℝ) ≤ 5)
+    rw [Real.rpow_one] at hpow
+    exact hpow
+  have hMupper : M ≤ 2 * Real.rpow x 5 := by
+    calc
+      M ≤ x := hMleX
+      _ ≤ Real.rpow x 5 := hxPow5
+      _ ≤ 2 * Real.rpow x 5 := by
+        nlinarith [Real.rpow_nonneg hxpos.le (5 : ℝ)]
+  have hMertensX := hMertens x hxMertens'
+  rcases hMertensX with ⟨_, hVlower₀⟩
+  have hVlower : vMin * Real.rpow L (-(24 / 100 : ℝ)) ≤ V := by
+    simpa [L, V] using hVlower₀
+  have hVpos : 0 < V := by
+    have hbase : 0 < vMin * Real.rpow L (-(24 / 100 : ℝ)) :=
+      mul_pos hvMin (Real.rpow_pos_of_pos hLpos _)
+    exact lt_of_lt_of_le hbase hVlower
+  let phase : ℝ := if |u| ≤ Tstar then
+      |u|⁻¹ + Real.rpow x (-c₀)
+    else Real.exp (-L / Real.rpow (Real.log L) C₃)
+  let E : ℝ := Real.rpow L (-A_s)
+  let Bsrc : ℝ := E + K * phase
+  have hPhaseNonneg : 0 ≤ phase := by
+    dsimp [phase]
+    split_ifs <;> positivity
+  have hSourceX := hSourceA x hxSource'
+  dsimp [L, Tstar] at hSourceX
+  have hSourceIntervals : ∀ l' rr', M ≤ l' → l' ≤ rr' → rr' ≤ 2 * M →
+      ‖ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.roughSourceIntervalSum
+          x k χ u l' rr' / (M * V)‖ ≤ Bsrc := by
+    intro l' rr' hl' hl'r' hr'
+    have h := hSourceX M hMx hMlogLower hMupper k hk
+      (by simpa [L] using hkBound) χ u huLower (le_of_lt huUpper)
+    have h' := h l' rr' hl' hl'r' hr'
+    simpa [ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.roughSourceIntervalSum,
+      L, Tstar, V, phase, E, Bsrc] using h'
+  have hDensityError : F_Q * E ≤ Real.rpow L (-A₄) := by
+    have hFQ : F_Q ≤ L := hFQleL
+    have hCancel : Real.rpow L (-A_s) * L = Real.rpow L (-A₄) := by
+      calc
+        _ = Real.rpow L (-A_s) * Real.rpow L (1 : ℝ) := by
+          have hOne : Real.rpow L (1 : ℝ) = L := Real.rpow_one L
+          exact congrArg (fun z : ℝ => Real.rpow L (-A_s) * z) hOne.symm
+        _ = Real.rpow L (-A_s + 1) := (Real.rpow_add hLpos _ _).symm
+        _ = Real.rpow L (-A₄) := by congr 1 <;> dsimp [A_s] <;> ring
+    calc
+      _ ≤ L * Real.rpow L (-A_s) :=
+        mul_le_mul_of_nonneg_right hFQ (Real.rpow_nonneg hLpos.le _)
+      _ = Real.rpow L (-A₄) := by rw [mul_comm, hCancel]
+  have hPowerDecay : E ≤ Real.rpow L (-A₄) := by
+    dsimp [E]
+    exact Real.rpow_le_rpow_of_exponent_le hLone (by dsimp [A_s]; linarith)
+  have hScaleOsc : K * phase ≤ C₀ * (Real.rpow L C₀ * phase) := by
+    have hPowC₀ : 1 ≤ Real.rpow L C₀ := Real.one_le_rpow hLone hC₀.le
+    have hPhaseScale : phase ≤ Real.rpow L C₀ * phase := by
+      calc
+        phase = 1 * phase := by ring
+        _ ≤ Real.rpow L C₀ * phase :=
+          mul_le_mul_of_nonneg_right hPowC₀ hPhaseNonneg
+    calc
+      K * phase ≤ C₀ * phase := mul_le_mul_of_nonneg_right hC₀K hPhaseNonneg
+      _ ≤ C₀ * (Real.rpow L C₀ * phase) :=
+        mul_le_mul_of_nonneg_left hPhaseScale hC₀.le
+  have hSourceFinal :
+      ‖(∑ m ∈ I,
+          (χ (m : ZMod k) : ℂ) *
+            Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
+              Real.log (m : ℝ)) / (M * V)‖ ≤ E + K * phase := by
+    have h := hSourceX M hMx hMlogLower hMupper k hk
+      (by simpa [L] using hkBound) χ u huLower (le_of_lt huUpper)
+      l r hMl hlr hr
+    simpa [ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.roughSourceIntervalSum,
+      I, V, L, Tstar, phase, E] using h
+  have hWeighted :=
+    ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.weighted_rough_source_interval_bound
+      Q x M V L wMin wMax Bsrc B_Q K_Q k χ u l r hLone hMgt hVpos
+      hwMinPos hMinMax hMlogLower hLog2MUpper hB_Q.le hK_Q.le
+      hQBound hQLip hSourceIntervals hMl hlr hr
+  have hProxyPointwise (m : ℕ) (hm : m ∈ I) :
+      ((χ (m : ZMod k) : ℂ) *
+          Complex.exp (Complex.I * u * Real.log (m : ℝ)) *
+            (roughProxy x γ m : ℂ)) =
+        (Q (Real.log (m : ℝ) / L) : ℂ) *
+          (((χ (m : ZMod k) : ℂ) *
+            Complex.exp (Complex.I * u * Real.log (m : ℝ))) /
+              (Real.log (m : ℝ) : ℂ)) /
+            (V : ℂ) := by
+    have hmBounds := (Finset.mem_filter.mp hm).2
+    have hmRough : roughAbove m (roughCutoff x) := hmBounds.2.2
+    have hmLower : M ≤ (m : ℝ) := le_trans hMl hmBounds.1
+    have hlogmPos : 0 < Real.log (m : ℝ) := by
+      apply lt_of_lt_of_le hlogMpos
+      exact Real.log_le_log hMpos hmLower
+    have hProxyCoeff : roughProxy x γ m =
+        Q (Real.log (m : ℝ) / L) /
+          (V * Real.log (m : ℝ)) := by
+      dsimp [roughProxy]
+      simp [hmRough]
+      change roughDensity γ (Real.log (m : ℝ) / L) / (L * V) =
+        ((Real.log (m : ℝ) / L) *
+          roughDensity γ (Real.log (m : ℝ) / L)) /
+          (V * Real.log (m : ℝ))
+      field_simp [ne_of_gt hLpos, ne_of_gt hVpos, ne_of_gt hlogmPos]
+      <;> ring
+    rw [show (roughProxy x γ m : ℂ) =
+        ((Q (Real.log (m : ℝ) / L) /
+          (V * Real.log (m : ℝ))) : ℝ) by exact congrArg Complex.ofReal hProxyCoeff]
+    push_cast
+    field_simp [ne_of_gt hVpos, ne_of_gt hlogmPos]
+    <;> ring
+  have hProxySum :
+      (∑ m ∈ I,
+        (χ (m : ZMod k) : ℂ) *
+          Complex.exp (Complex.I * u * Real.log (m : ℝ)) *
+            (roughProxy x γ m : ℂ)) / (M : ℂ) =
+        (∑ m ∈ I,
+          (Q (Real.log (m : ℝ) / L) : ℂ) *
+            (((χ (m : ZMod k) : ℂ) *
+              Complex.exp (Complex.I * u * Real.log (m : ℝ))) /
+                (Real.log (m : ℝ) : ℂ))) /
+          ((M * V : ℝ) : ℂ) := by
+    calc
+      _ = (∑ m ∈ I,
+            ((Q (Real.log (m : ℝ) / L) : ℂ) *
+              (((χ (m : ZMod k) : ℂ) *
+                Complex.exp (Complex.I * u * Real.log (m : ℝ))) /
+                  (Real.log (m : ℝ) : ℂ))) /
+              (V : ℂ)) / (M : ℂ) := by
+        congr 1
+        apply Finset.sum_congr rfl
+        intro m hm
+        exact hProxyPointwise m hm
+      _ = ((∑ m ∈ I,
+            (Q (Real.log (m : ℝ) / L) : ℂ) *
+              (((χ (m : ZMod k) : ℂ) *
+                Complex.exp (Complex.I * u * Real.log (m : ℝ))) /
+                  (Real.log (m : ℝ) : ℂ))) /
+            (V : ℂ)) / (M : ℂ) := by rw [← Finset.sum_div]
+      _ = _ := by
+        push_cast
+        field_simp [ne_of_gt hVpos, ne_of_gt hMpos]
+        <;> ring
+  have hWeightedBound :
+      ‖(∑ m ∈ I,
+          (Q (Real.log (m : ℝ) / L) : ℂ) *
+            (((χ (m : ZMod k) : ℂ) *
+              Complex.exp (Complex.I * u * Real.log (m : ℝ))) /
+                (Real.log (m : ℝ) : ℂ))) /
+          ((M * V : ℝ) : ℂ)‖ ≤ F_Q * Bsrc := by
+    simpa [I, F_Q, Complex.ofReal_mul] using hWeighted
+  have hErrorSource :
+      Real.rpow L (-A_s) + K * phase ≤
+        Real.rpow L (-A₄) + C₀ * (Real.rpow L C₀ * phase) :=
+    add_le_add hPowerDecay hScaleOsc
+  have hErrorProxy : F_Q * Bsrc ≤
+      Real.rpow L (-A₄) + C₀ * (Real.rpow L C₀ * phase) := by
+    dsimp [Bsrc]
+    calc
+      _ = F_Q * Real.rpow L (-A_s) + (F_Q * K) * phase := by ring
+      _ ≤ Real.rpow L (-A₄) + C₀ * (Real.rpow L C₀ * phase) := by
+        apply add_le_add hDensityError
+        calc
+          (F_Q * K) * phase ≤ C₀ * phase :=
+            mul_le_mul_of_nonneg_right hC₀FQK hPhaseNonneg
+          _ ≤ C₀ * (Real.rpow L C₀ * phase) := by
+            exact mul_le_mul_of_nonneg_left
+              (by
+                calc
+                  phase = 1 * phase := by ring
+                  _ ≤ Real.rpow L C₀ * phase :=
+                    mul_le_mul_of_nonneg_right
+                      (Real.one_le_rpow hLone hC₀.le) hPhaseNonneg)
+              hC₀.le
+  constructor
+  · calc
+      _ ≤ Real.rpow L (-A_s) + K * phase := by
+        simpa [ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.roughSourceIntervalSum,
+          I, V, L, Tstar, phase, E] using hSourceFinal
+      _ ≤ Real.rpow L (-A₄) + C₀ * (Real.rpow L C₀ * phase) := hErrorSource
+      _ = Real.rpow L (-A₄) +
+          C₀ * (if |u| ≤ Tstar then
+            Real.rpow L C₀ * (|u|⁻¹ + Real.rpow x (-c₀))
+          else Real.rpow L C₀ *
+            Real.exp (-L / Real.rpow (Real.log L) C₃)) := by
+          simp [phase, Tstar]
+  · have hProxyBound :
+        ‖(∑ m ∈ I,
+            (χ (m : ZMod k) : ℂ) *
+              Complex.exp (Complex.I * u * Real.log (m : ℝ)) *
+                (roughProxy x γ m : ℂ)) / (M : ℂ)‖ ≤ F_Q * Bsrc := by
+      rw [hProxySum]
+      exact hWeightedBound
+    calc
+      _ = ‖(∑ m ∈ I,
+            (χ (m : ZMod k) : ℂ) *
+              Complex.exp (Complex.I * u * Real.log (m : ℝ)) *
+                (roughProxy x γ m : ℂ)) / (M : ℂ)‖ := by
+        simp [I]
+      _ ≤ F_Q * Bsrc := hProxyBound
+      _ ≤ Real.rpow L (-A₄) + C₀ * (Real.rpow L C₀ * phase) := hErrorProxy
+      _ = Real.rpow L (-A₄) +
+          C₀ * (if |u| ≤ Tstar then
+            Real.rpow L C₀ * (|u|⁻¹ + Real.rpow x (-c₀))
+          else Real.rpow L C₀ *
+            Real.exp (-L / Real.rpow (Real.log L) C₃)) := by
+          simp [phase, Tstar]
 
 set_option maxHeartbeats 2000000 in
 private theorem high_frequency_upper_scale
