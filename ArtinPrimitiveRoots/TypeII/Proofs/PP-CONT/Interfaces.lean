@@ -1994,6 +1994,54 @@ private theorem cont_high_dyadic_tail_bound
       rw [Real.exp_add]
       simp [B, m, mul_assoc, mul_left_comm, mul_comm]
 
+private theorem cont_partial_sum_split {q : ℕ} (χ : DirichletCharacter ℂ q)
+    {Y₀ Y σ v : ℝ} (hfloor : ⌊Y₀⌋₊ ≤ ⌊Y⌋₊) :
+    dirichletPartialSum q χ Y (⟨σ, v⟩ : ℂ) =
+      dirichletPartialSum q χ Y₀ (⟨σ, v⟩ : ℂ) +
+        ∑ n ∈ Finset.Icc (⌊Y₀⌋₊ + 1) ⌊Y⌋₊,
+          χ (n : ZMod q) *
+            Complex.exp (-⟨σ, v⟩ * Real.log (n : ℝ)) := by
+  classical
+  let F₀ := ⌊Y₀⌋₊
+  let F := ⌊Y⌋₊
+  have hfilter₀ :
+      (Finset.range (⌊Y₀⌋₊ + 1)).filter (fun n : ℕ => 1 ≤ n) =
+        Finset.Icc 1 ⌊Y₀⌋₊ := by
+    ext n
+    simp only [Finset.mem_filter, Finset.mem_range, Finset.mem_Icc]
+    omega
+  have hfilter :
+      (Finset.range (⌊Y⌋₊ + 1)).filter (fun n : ℕ => 1 ≤ n) =
+        Finset.Icc 1 ⌊Y⌋₊ := by
+    ext n
+    simp only [Finset.mem_filter, Finset.mem_range, Finset.mem_Icc]
+    omega
+  have hsplit : Finset.Icc 1 F =
+      Finset.Icc 1 F₀ ∪ Finset.Icc (F₀ + 1) F := by
+    ext n
+    simp only [Finset.mem_union, Finset.mem_Icc]
+    constructor
+    · rintro ⟨hn₁, hnF⟩
+      by_cases hnF₀ : n ≤ F₀
+      · exact Or.inl ⟨hn₁, hnF₀⟩
+      · exact Or.inr ⟨by omega, hnF⟩
+    · rintro (⟨hn₁, hnF₀⟩ | ⟨hnF₀, hnF⟩)
+      · exact ⟨hn₁, hnF₀.trans hfloor⟩
+      · exact ⟨by omega, hnF⟩
+  have hdisj : Disjoint (Finset.Icc 1 F₀) (Finset.Icc (F₀ + 1) F) := by
+    apply Finset.disjoint_left.mpr
+    intro n hn₀ hn
+    simp only [Finset.mem_Icc] at hn₀ hn
+    omega
+  have hY0_filter : (Finset.range (F₀ + 1)).filter (fun n : ℕ => 1 ≤ n) =
+      Finset.Icc 1 F₀ := by simpa [F₀] using hfilter₀
+  have hY_filter : (Finset.range (F + 1)).filter (fun n : ℕ => 1 ≤ n) =
+      Finset.Icc 1 F := by simpa [F] using hfilter
+  unfold dirichletPartialSum
+  rw [show ⌊Y₀⌋₊ = F₀ by rfl, show ⌊Y⌋₊ = F by rfl,
+    hY0_filter, hY_filter]
+  rw [hsplit, Finset.sum_union hdisj]
+
 private theorem cont_growth_high_height_bound
     (hLog : ArtinPrimitiveRoots.Proofs.pp_phase_p.phaseLogPhaseStatement) :
     ∀ C : ℝ, 0 < C →
