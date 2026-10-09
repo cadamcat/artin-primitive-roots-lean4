@@ -23,6 +23,20 @@ theorem bad_support (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf) (ξ w z : ℂ)
     localEulerTerm R η U u v hv ξ w z (0, 0, 0, 0) = 1 ∧
     (∀ k m, k ≠ 0 → localEulerTerm R η U u v hv ξ w z (0, 0, k, m) = 0) ∧
     localEulerTerm R η U u v hv ξ w z (1, 0, 0, 0) = 0 := by
-  sorry
+  have hj : 0 < frequencyValuation η U u v := Nat.pos_of_ne_zero hfreq
+  refine ⟨?_, ?_⟩
+  · have hC : localC R v hv 0 0 (frequencyValuation η U u v) = 1 := by
+      simpa using hC0 0 (frequencyValuation η U u v)
+    simp [localEulerTerm, hC]
+  · refine ⟨?_, ?_⟩
+    · intro k m hk
+      have hJ : frequencyValuation η U u v + 6 * m ≠ 0 := by omega
+      have hC : localC R v hv 0 k (frequencyValuation η U u v + 6 * m) = 0 := by
+        rw [hC0]
+        simp only [if_neg hk, if_neg hJ]
+      simp [localEulerTerm, hC]
+    · have hC : localC R v hv 1 0 (frequencyValuation η U u v) = 0 :=
+        hC1 _ hj
+      simp [localEulerTerm, hC]
 
 end ArtinPrimitiveRoots.Proofs.a2_euler_sol
