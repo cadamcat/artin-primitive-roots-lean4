@@ -1,4 +1,4 @@
-import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.BaseFiniteCharacters
+import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.BaseFieldCorrection
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
