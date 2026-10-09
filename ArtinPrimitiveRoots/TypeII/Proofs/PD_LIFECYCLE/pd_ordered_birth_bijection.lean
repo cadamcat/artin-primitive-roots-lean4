@@ -42,6 +42,8 @@ import ArtinPrimitiveRoots.Proofs.pd_life_b.GhostAbsentPreservation
 import ArtinPrimitiveRoots.Proofs.pd_life_b.EdgeAbsentPreservation
 import ArtinPrimitiveRoots.Proofs.pd_life_b.AllTraceAbsent
 import ArtinPrimitiveRoots.Proofs.pd_life_b.GhostDeletionUnique
+import ArtinPrimitiveRoots.Proofs.pd_life_b.GhostDeletionPrimeUnique
+import ArtinPrimitiveRoots.Proofs.pd_life_b.GuidedDecomp
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.Defs
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_lifecycle_parameters
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_ordered_distinct_batch_sum
@@ -206,7 +208,19 @@ theorem pd_ordered_birth_bijection (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 
   rw [hSumSingle]
   simp only [hBoundary0, star_one, mul_one]
   rw [hMeasureFormula]
-  sorry
+  have hN : 0 < pathLength S.x := by
+    have hx2 : (2 : ℝ) ≤ S.x := le_trans hx₀ hx
+    have hlog : 0 < Real.log S.x := Real.log_pos (by linarith)
+    have hR : 0 < momentR S.x := by
+      unfold momentR
+      exact Nat.ceil_pos.mpr (div_pos (Real.rpow_pos_of_pos hlog _) two_pos)
+    unfold pathLength
+    omega
+  exact ArtinPrimitiveRoots.Proofs.pd_birth_opus.birth_assembly F S ρ w B γ hγ hParamsAt.2.1
+    (fun i => (hMass i).1) hN hInitialNodup
+    (ArtinPrimitiveRoots.Proofs.pd_birth_opus.decomposition_of_unique F S ρ w B γ _ _
+      (fun t ht => ArtinPrimitiveRoots.Proofs.pd_birth_opus.guided_trace_exists_unique
+        F S ρ w B γ hγ hParamsAt.2.1 hInitialNodup t ht))
 
 end
 end ArtinPrimitiveRoots.TypeII.PD
