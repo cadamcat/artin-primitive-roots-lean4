@@ -15679,6 +15679,41 @@ private theorem rf_pairing_grouped_sheet_exchange
   rw [hEq]
   exact hExchange
 
+private theorem rf_pairing_units_compact_lift
+    (K : Set S.FS) (hK : IsCompact K)
+    (hunit : ∀ y ∈ K, IsUnit y) :
+    IsCompact ((Units.val : S.FSˣ → S.FS) ⁻¹' K) := by
+  have hInv : ContinuousOn (fun y : S.FS => y⁻¹) K := by
+    apply ContinuousOn.prodMk
+    · apply continuousOn_pi.mpr
+      intro v
+      exact ((continuous_apply v).comp continuous_fst).continuousOn.inv₀
+        (fun y hy => isUnit_iff_ne_zero.mp
+          ((Pi.isUnit_iff.mp (Prod.isUnit_iff.mp (hunit y hy)).1) v))
+    · apply continuousOn_pi.mpr
+      intro w
+      exact ((continuous_apply w).comp continuous_snd).continuousOn.inv₀
+        (fun y hy => isUnit_iff_ne_zero.mp
+          ((Pi.isUnit_iff.mp (Prod.isUnit_iff.mp (hunit y hy)).2) w))
+  let graph : S.FS → S.FS × S.FSᵐᵒᵖ := fun y => (y, MulOpposite.op y⁻¹)
+  have hgraph : ContinuousOn graph K :=
+    continuous_id.continuousOn.prodMk
+      ((MulOpposite.opHomeomorph : S.FS ≃ₜ S.FSᵐᵒᵖ).continuous.comp_continuousOn hInv)
+  have hCompact : IsCompact ((Units.embedProduct S.FS) ⁻¹' (graph '' K)) :=
+    Units.isClosedEmbedding_embedProduct.isCompact_preimage
+      (hK.image_of_continuousOn hgraph)
+  have hEq : (Units.embedProduct S.FS) ⁻¹' (graph '' K) =
+      (Units.val : S.FSˣ → S.FS) ⁻¹' K := by
+    ext z
+    constructor
+    · rintro ⟨y, hy, heq⟩
+      have hval : y = (z : S.FS) := congrArg Prod.fst heq
+      simpa only [Set.mem_preimage, hval] using hy
+    · intro hz
+      refine ⟨(z : S.FS), hz, ?_⟩
+      simp [graph, Units.embedProduct]
+  rwa [hEq] at hCompact
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
