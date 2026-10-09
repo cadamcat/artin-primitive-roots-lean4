@@ -178,7 +178,7 @@ private theorem rf_mem_factorPlaces_of_exp_ne_zero (I : Ideal (𝓞 F)) (hI : I 
 
 private theorem rf_ideleFiniteCoord_principal (a : Fˣ) (v : ArtinPrimitiveRoots.A1.FinPlace F) :
     ArtinPrimitiveRoots.Dictionary.ideleFiniteCoord v
-      (IdeleGroup.unitEmbedding (𝓞 F) F a) = ArtinPrimitiveRoots.A1.toLoc v a := by
+      (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) = ArtinPrimitiveRoots.A1.toLoc v a := by
   apply Units.ext
   rfl
 
@@ -261,7 +261,7 @@ private theorem rf_tendsto_restrictedProduct_truncate
   rw [← hnhds]
   exact hinc
 
-private def rfFiniteSupportTrunc (x : IdeleGroup (𝓞 F) F)
+private def rfFiniteSupportTrunc (x : NumberField.IdeleGroup (𝓞 F) F)
     (T : Finset (HeightOneSpectrum (𝓞 F))) : FiniteAdeleRing (𝓞 F) F :=
   ⟨fun v => if v ∈ T then
       (ArtinPrimitiveRoots.Dictionary.ideleFiniteCoord v x : v.adicCompletion F) else 1,
@@ -272,15 +272,15 @@ private def rfFiniteSupportTrunc (x : IdeleGroup (𝓞 F) F)
 
 /-- A finite-support idele approximation defined locally in this lane to avoid the unavailable
 upstream RestrictedProductDensity helper. -/
-private def rfIdeleSupportTrunc (x : IdeleGroup (𝓞 F) F)
-    (T : Finset (HeightOneSpectrum (𝓞 F))) : IdeleGroup (𝓞 F) F :=
+private def rfIdeleSupportTrunc (x : NumberField.IdeleGroup (𝓞 F) F)
+    (T : Finset (HeightOneSpectrum (𝓞 F))) : NumberField.IdeleGroup (𝓞 F) F :=
   (∏ w ∈ Finset.univ,
-      IdeleGroup.ofCompletion (𝓞 F) F w
+      NumberField.IdeleGroup.ofCompletion (𝓞 F) F w
         (ArtinPrimitiveRoots.Dictionary.ideleInfiniteCoordUnit w x)) *
-    ∏ v ∈ T, IdeleGroup.ofAdicCompletion (𝓞 F) F v
+    ∏ v ∈ T, NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v
       (ArtinPrimitiveRoots.Dictionary.ideleFiniteCoord v x)
 
-private theorem rfIdeleSupportTrunc_infiniteCoord (x : IdeleGroup (𝓞 F) F)
+private theorem rfIdeleSupportTrunc_infiniteCoord (x : NumberField.IdeleGroup (𝓞 F) F)
     (T : Finset (HeightOneSpectrum (𝓞 F))) (w : InfinitePlace F) :
     ArtinPrimitiveRoots.Dictionary.ideleInfiniteCoord w (rfIdeleSupportTrunc x T) =
       ArtinPrimitiveRoots.Dictionary.ideleInfiniteCoord w x := by
@@ -291,9 +291,9 @@ private theorem rfIdeleSupportTrunc_infiniteCoord (x : IdeleGroup (𝓞 F) F)
     simp [ArtinPrimitiveRoots.Dictionary.ideleInfiniteCoordUnit_ofAdicCompletion]
   exact congrArg Units.val hunit
 
-private theorem rfIdeleSupportTrunc_finiteCoord (x : IdeleGroup (𝓞 F) F)
+private theorem rfIdeleSupportTrunc_finiteCoord (x : NumberField.IdeleGroup (𝓞 F) F)
     (T : Finset (HeightOneSpectrum (𝓞 F))) (v : HeightOneSpectrum (𝓞 F)) :
-    (((rfIdeleSupportTrunc x T : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F).2 v) =
+    (((rfIdeleSupportTrunc x T : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F).2 v) =
       rfFiniteSupportTrunc x T v := by
   classical
   have hcoord : ArtinPrimitiveRoots.Dictionary.ideleFiniteCoord v (rfIdeleSupportTrunc x T) =
@@ -302,7 +302,7 @@ private theorem rfIdeleSupportTrunc_finiteCoord (x : IdeleGroup (𝓞 F) F)
     rw [map_mul]
     have hleft : ArtinPrimitiveRoots.Dictionary.ideleFiniteCoord v
         (∏ w ∈ Finset.univ,
-          IdeleGroup.ofCompletion (𝓞 F) F w
+          NumberField.IdeleGroup.ofCompletion (𝓞 F) F w
             (ArtinPrimitiveRoots.Dictionary.ideleInfiniteCoordUnit w x)) = 1 := by
       simp [ArtinPrimitiveRoots.Dictionary.ideleFiniteCoord_ofCompletion]
     rw [hleft, one_mul, ArtinPrimitiveRoots.Dictionary.ideleFiniteCoord_finsetProduct]
@@ -324,7 +324,7 @@ private theorem rfIdeleSupportTrunc_finiteCoord (x : IdeleGroup (𝓞 F) F)
       · simp [h]
       · simp [h]
 
-private theorem rfIdeleSupportTrunc_coe (x : IdeleGroup (𝓞 F) F)
+private theorem rfIdeleSupportTrunc_coe (x : NumberField.IdeleGroup (𝓞 F) F)
     (T : Finset (HeightOneSpectrum (𝓞 F))) :
     (rfIdeleSupportTrunc x T : AdeleRing (𝓞 F) F) =
       ((x : AdeleRing (𝓞 F) F).1, rfFiniteSupportTrunc x T) := by
@@ -335,7 +335,7 @@ private theorem rfIdeleSupportTrunc_coe (x : IdeleGroup (𝓞 F) F)
     intro v
     exact rfIdeleSupportTrunc_finiteCoord x T v
 
-private theorem rfFiniteSupportTrunc_tendsto (x : IdeleGroup (𝓞 F) F) :
+private theorem rfFiniteSupportTrunc_tendsto (x : NumberField.IdeleGroup (𝓞 F) F) :
     Tendsto (fun T : Finset (HeightOneSpectrum (𝓞 F)) => rfFiniteSupportTrunc x T)
       atTop (𝓝 ((x : AdeleRing (𝓞 F) F).2)) := by
   change Tendsto (fun T : Finset (HeightOneSpectrum (𝓞 F)) =>
@@ -354,14 +354,14 @@ private theorem rfFiniteSupportTrunc_tendsto (x : IdeleGroup (𝓞 F) F) :
   exact rf_tendsto_restrictedProduct_truncate (hA := fun v => by simp)
     ((x : AdeleRing (𝓞 F) F).2)
 
-private theorem rfIdeleSupportTrunc_inv (x : IdeleGroup (𝓞 F) F)
+private theorem rfIdeleSupportTrunc_inv (x : NumberField.IdeleGroup (𝓞 F) F)
     (T : Finset (HeightOneSpectrum (𝓞 F))) :
     (rfIdeleSupportTrunc x T)⁻¹ = rfIdeleSupportTrunc x⁻¹ T := by
   classical
   simp [rfIdeleSupportTrunc, map_inv, Finset.prod_inv_distrib]
   ac_rfl
 
-private theorem rfIdeleSupportTrunc_coe_tendsto (x : IdeleGroup (𝓞 F) F) :
+private theorem rfIdeleSupportTrunc_coe_tendsto (x : NumberField.IdeleGroup (𝓞 F) F) :
     Tendsto (fun T : Finset (HeightOneSpectrum (𝓞 F)) =>
       (rfIdeleSupportTrunc x T : AdeleRing (𝓞 F) F)) atTop
       (𝓝 ((x : AdeleRing (𝓞 F) F))) := by
@@ -382,37 +382,37 @@ private theorem rfIdeleSupportTrunc_coe_tendsto (x : IdeleGroup (𝓞 F) F) :
   rw [hxpair]
   exact hprod
 
-private theorem rfIdeleSupportTrunc_tendsto (x : IdeleGroup (𝓞 F) F) :
+private theorem rfIdeleSupportTrunc_tendsto (x : NumberField.IdeleGroup (𝓞 F) F) :
     Tendsto (fun T : Finset (HeightOneSpectrum (𝓞 F)) => rfIdeleSupportTrunc x T)
       atTop (𝓝 x) := by
   classical
   have hval := rfIdeleSupportTrunc_coe_tendsto x
   have hvalInv : Tendsto (fun T : Finset (HeightOneSpectrum (𝓞 F)) =>
-      (((rfIdeleSupportTrunc x T)⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)) atTop
-      (𝓝 ((x⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)) := by
+      (((rfIdeleSupportTrunc x T)⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)) atTop
+      (𝓝 ((x⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)) := by
     simpa only [rfIdeleSupportTrunc_inv] using rfIdeleSupportTrunc_coe_tendsto (x⁻¹)
   have hvalInvOp : Tendsto (fun T : Finset (HeightOneSpectrum (𝓞 F)) =>
-      MulOpposite.op (((rfIdeleSupportTrunc x T)⁻¹ : IdeleGroup (𝓞 F) F) :
+      MulOpposite.op (((rfIdeleSupportTrunc x T)⁻¹ : NumberField.IdeleGroup (𝓞 F) F) :
         AdeleRing (𝓞 F) F)) atTop
-      (𝓝 (MulOpposite.op ((x⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F))) :=
+      (𝓝 (MulOpposite.op ((x⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F))) :=
     (MulOpposite.opHomeomorph.continuous.tendsto
-      ((x⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)).comp hvalInv
+      ((x⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)).comp hvalInv
   have hEmbed : Tendsto (fun T : Finset (HeightOneSpectrum (𝓞 F)) =>
       Units.embedProduct (AdeleRing (𝓞 F) F) (rfIdeleSupportTrunc x T)) atTop
       (𝓝 (Units.embedProduct (AdeleRing (𝓞 F) F) x)) := by
     change Tendsto (fun T : Finset (HeightOneSpectrum (𝓞 F)) =>
       ((rfIdeleSupportTrunc x T : AdeleRing (𝓞 F) F),
-        MulOpposite.op (((rfIdeleSupportTrunc x T)⁻¹ : IdeleGroup (𝓞 F) F) :
+        MulOpposite.op (((rfIdeleSupportTrunc x T)⁻¹ : NumberField.IdeleGroup (𝓞 F) F) :
           AdeleRing (𝓞 F) F))) atTop
       (𝓝 ((x : AdeleRing (𝓞 F) F),
-        MulOpposite.op ((x⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)))
+        MulOpposite.op ((x⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)))
     rw [Prod.tendsto_iff]
     exact ⟨hval, hvalInvOp⟩
   exact Units.isEmbedding_embedProduct.tendsto_nhds_iff.mpr hEmbed
 
 private theorem rf_ideleInfiniteCoord_principal (a : Fˣ) (w : InfinitePlace F) :
     ArtinPrimitiveRoots.Dictionary.ideleInfiniteCoordUnit w
-      (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+      (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) =
         Units.map (algebraMap F w.Completion).toMonoidHom a := by
   apply Units.ext
   rfl
@@ -429,7 +429,7 @@ private theorem rf_idele_inf_comp (D : ArtinPrimitiveRoots.A1.FieldData F)
         (InfinitePlace.Completion.ringEquivComplexOfIsComplex
           (D.isTotallyComplex.isComplex w)).symm.toMonoidHom (S.compC w (S.diagU a)) =
       ArtinPrimitiveRoots.Dictionary.ideleInfiniteCoordUnit w
-        (IdeleGroup.unitEmbedding (𝓞 F) F a) := by
+        (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) := by
   let e := InfinitePlace.Completion.ringEquivComplexOfIsComplex
     (D.isTotallyComplex.isComplex w)
   rw [rf_compC_diagU, rf_ideleInfiniteCoord_principal]
@@ -458,10 +458,10 @@ theorem rf_heckeChar_idealValue_eq_LS_of_gen
     χ.idealValue I = S.LS χ (S.diagU a) := by
   classical
   let T : Finset (HeightOneSpectrum (𝓞 F)) := S.Sf ∪ rfFactorPlaces I
-  let x : IdeleGroup (𝓞 F) F := IdeleGroup.unitEmbedding (𝓞 F) F a
-  let q : IdeleGroup (𝓞 F) F →* IdeleClassGroup (𝓞 F) F :=
-    QuotientGroup.mk' (IdeleGroup.principalSubgroup (𝓞 F) F)
-  let ψ : IdeleGroup (𝓞 F) F →* ℂˣ :=
+  let x : NumberField.IdeleGroup (𝓞 F) F := NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a
+  let q : NumberField.IdeleGroup (𝓞 F) F →* IdeleClassGroup (𝓞 F) F :=
+    QuotientGroup.mk' (NumberField.IdeleGroup.principalSubgroup (𝓞 F) F)
+  let ψ : NumberField.IdeleGroup (𝓞 F) F →* ℂˣ :=
     (χ : IdeleClassGroup (𝓞 F) F →* ℂˣ).comp q
   let locLocal (v : ArtinPrimitiveRoots.A1.FinPlace F) : ℂˣ :=
     χ.loc v (ArtinPrimitiveRoots.A1.toLoc v a)
@@ -475,15 +475,15 @@ theorem rf_heckeChar_idealValue_eq_LS_of_gen
         (Units.mk0 (ArtinPrimitiveRoots.A1.unif v) (ArtinPrimitiveRoots.A1.unif_ne_zero v))) ^
           ArtinPrimitiveRoots.A1.idealExp v I
   have hprincipalClass : q x = 1 := by
-    change (x : IdeleGroup (𝓞 F) F ⧸ IdeleGroup.principalSubgroup (𝓞 F) F) = 1
+    change (x : NumberField.IdeleGroup (𝓞 F) F ⧸ NumberField.IdeleGroup.principalSubgroup (𝓞 F) F) = 1
     exact (QuotientGroup.eq_one_iff
-      (N := IdeleGroup.principalSubgroup (𝓞 F) F) x).mpr (by
-        change x ∈ (IdeleGroup.unitEmbedding (𝓞 F) F).range
+      (N := NumberField.IdeleGroup.principalSubgroup (𝓞 F) F) x).mpr (by
+        change x ∈ (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F).range
         exact ⟨a, rfl⟩)
   have hprincipal : ψ x = 1 := by
     change χ (q x) = 1
     rw [hprincipalClass, map_one]
-  have hψcont : Continuous (fun z : IdeleGroup (𝓞 F) F => ψ z) := by
+  have hψcont : Continuous (fun z : NumberField.IdeleGroup (𝓞 F) F => ψ z) := by
     dsimp [ψ, q]
     exact χ.continuous.comp continuous_quotient_mk'
   have hEval (U : Finset (HeightOneSpectrum (𝓞 F))) :
@@ -492,14 +492,14 @@ theorem rf_heckeChar_idealValue_eq_LS_of_gen
     calc
       ψ (rfIdeleSupportTrunc x U) =
           ψ ((∏ w ∈ Finset.univ,
-            IdeleGroup.ofCompletion (𝓞 F) F w
+            NumberField.IdeleGroup.ofCompletion (𝓞 F) F w
               (ArtinPrimitiveRoots.Dictionary.ideleInfiniteCoordUnit w x)) *
-            ∏ v ∈ U, IdeleGroup.ofAdicCompletion (𝓞 F) F v
+            ∏ v ∈ U, NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v
               (ArtinPrimitiveRoots.Dictionary.ideleFiniteCoord v x)) := rfl
       _ = ψ (∏ w ∈ Finset.univ,
-            IdeleGroup.ofCompletion (𝓞 F) F w
+            NumberField.IdeleGroup.ofCompletion (𝓞 F) F w
               (ArtinPrimitiveRoots.Dictionary.ideleInfiniteCoordUnit w x)) *
-          ψ (∏ v ∈ U, IdeleGroup.ofAdicCompletion (𝓞 F) F v
+          ψ (∏ v ∈ U, NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v
               (ArtinPrimitiveRoots.Dictionary.ideleFiniteCoord v x)) := map_mul ψ _ _
       _ = (∏ w : InfinitePlace F, infLocal w) *
           ∏ v ∈ U, χ.loc v (ArtinPrimitiveRoots.Dictionary.ideleFiniteCoord v x) := by

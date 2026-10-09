@@ -263,13 +263,13 @@ private def conductorIntegralFiniteAdeleUnitHom :
     rfl
 
 private def conductorFiniteAdeleUnitToIdele :
-    (FiniteAdeleRing (𝓞 F) F)ˣ →* IdeleGroup (𝓞 F) F :=
+    (FiniteAdeleRing (𝓞 F) F)ˣ →* NumberField.IdeleGroup (𝓞 F) F :=
   (MulEquiv.prodUnits (M := InfiniteAdeleRing F)
     (N := FiniteAdeleRing (𝓞 F) F)).symm.toMonoidHom.comp
       (MonoidHom.inr (InfiniteAdeleRing F)ˣ (FiniteAdeleRing (𝓞 F) F)ˣ)
 
 private def conductorIntegralUnitIdeleHom :
-    ConductorLocalIntegralUnits (F := F) →* IdeleGroup (𝓞 F) F :=
+    ConductorLocalIntegralUnits (F := F) →* NumberField.IdeleGroup (𝓞 F) F :=
   (conductorFiniteAdeleUnitToIdele (F := F)).comp
     conductorIntegralFiniteAdeleUnitHom
 
@@ -336,7 +336,7 @@ private theorem conductorIntegralUnitIdeleHom_mulSingle
     (v : A1.FinPlace F) (u : (v.adicCompletionIntegers F).units) :
     conductorIntegralUnitIdeleHom
       (Pi.mulSingle (M := fun w : A1.FinPlace F => (w.adicCompletionIntegers F).units) v u) =
-      IdeleGroup.ofAdicCompletion (𝓞 F) F v u.val := by
+      NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v u.val := by
   apply Units.ext
   change (1, ((conductorIntegralFiniteAdeleUnitHom
       (Pi.mulSingle
@@ -821,17 +821,17 @@ private theorem conductorPrincipalFactorization
           v ∈ S.Sf ∪ conductorPrimeSupport f hf.1},
         ω.loc v.1 (u v.1).val) = 1 := by
   classical
-  let A : IdeleGroup (𝓞 F) F := ∏ w : InfinitePlace F,
-    IdeleGroup.ofCompletion (𝓞 F) F w
+  let A : NumberField.IdeleGroup (𝓞 F) F := ∏ w : InfinitePlace F,
+    NumberField.IdeleGroup.ofCompletion (𝓞 F) F w
       (Units.map (algebraMap F w.Completion).toMonoidHom a)
-  let Z : IdeleGroup (𝓞 F) F := ∏ v : B,
-    IdeleGroup.ofAdicCompletion (𝓞 F) F v.1 (z v)
-  let evInf : ∀ w : InfinitePlace F, IdeleGroup (𝓞 F) F →* w.Completion :=
+  let Z : NumberField.IdeleGroup (𝓞 F) F := ∏ v : B,
+    NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v.1 (z v)
+  let evInf : ∀ w : InfinitePlace F, NumberField.IdeleGroup (𝓞 F) F →* w.Completion :=
     fun w => {
       toFun := fun g => (g : AdeleRing (𝓞 F) F).1 w
       map_one' := rfl
       map_mul' := fun _ _ => rfl }
-  let evFin : ∀ v : A1.FinPlace F, IdeleGroup (𝓞 F) F →* v.adicCompletion F :=
+  let evFin : ∀ v : A1.FinPlace F, NumberField.IdeleGroup (𝓞 F) F →* v.adicCompletion F :=
     fun v => {
       toFun := fun g => (g : AdeleRing (𝓞 F) F).2 v
       map_one' := rfl
@@ -863,7 +863,7 @@ private theorem conductorPrincipalFactorization
     intro v
     dsimp only [Z]
     rw [map_prod]
-    change (∏ w : B, evFin v (IdeleGroup.ofAdicCompletion (𝓞 F) F w.1 (z w))) =
+    change (∏ w : B, evFin v (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F w.1 (z w))) =
       Units.coeHom (v.adicCompletion F) (∏ w : B, Pi.mulSingle
         (M := fun t : A1.FinPlace F => (t.adicCompletion F)ˣ) w.1 (z w) v)
     rw [map_prod]
@@ -879,12 +879,12 @@ private theorem conductorPrincipalFactorization
     · subst v
       simp [Pi.mulSingle]
     · simp [Pi.mulSingle, hv]
-  have hfactor : IdeleGroup.unitEmbedding (𝓞 F) F a =
+  have hfactor : NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a =
       A * Z * conductorIntegralUnitIdeleHom (F := F) u := by
     apply Units.ext
     apply Prod.ext
     · funext w
-      change evInf w (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+      change evInf w (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) =
         evInf w (A * Z * conductorIntegralUnitIdeleHom (F := F) u)
       rw [map_mul, map_mul, hAInf, hZInf]
       change algebraMap F w.Completion (a : F) =
@@ -892,7 +892,7 @@ private theorem conductorPrincipalFactorization
       simp
     · apply FiniteAdeleRing.ext
       intro v
-      change evFin v (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+      change evFin v (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) =
         evFin v (A * Z * conductorIntegralUnitIdeleHom (F := F) u)
       rw [map_mul, map_mul, hAFin, hZFin]
       change ((A1.toLoc v a : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
@@ -903,14 +903,14 @@ private theorem conductorPrincipalFactorization
           ((u v).val : v.adicCompletion F)
       simpa only [Units.val_mul, one_mul] using
         congrArg (fun x : (v.adicCompletion F)ˣ => (x : v.adicCompletion F)) (hfinite v)
-  let φ : IdeleGroup (𝓞 F) F →* ℂˣ :=
+  let φ : NumberField.IdeleGroup (𝓞 F) F →* ℂˣ :=
     (ω : IdeleClassGroup (𝓞 F) F →* ℂˣ).comp
       (QuotientGroup.mk' (NumberField.IdeleGroup.principalSubgroup (𝓞 F) F))
-  have hclass : (QuotientGroup.mk (IdeleGroup.unitEmbedding (𝓞 F) F a) :
+  have hclass : (QuotientGroup.mk (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) :
       IdeleClassGroup (𝓞 F) F) = 1 :=
     (QuotientGroup.eq_one_iff _).mpr ⟨a, rfl⟩
-  have hprincipal : φ (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 := by
-    change ω (QuotientGroup.mk (IdeleGroup.unitEmbedding (𝓞 F) F a)) = 1
+  have hprincipal : φ (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 := by
+    change ω (QuotientGroup.mk (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a)) = 1
     rw [hclass, map_one]
   have hA : φ A = ∏ w : InfinitePlace F, ω.locInf w
       (Units.map (algebraMap F w.Completion).toMonoidHom a) := by
@@ -930,7 +930,7 @@ private theorem conductorPrincipalFactorization
       rw [hA, hZ, hU]
     _ = φ (A * Z * conductorIntegralUnitIdeleHom (F := F) u) := by
       rw [map_mul, map_mul]
-    _ = φ (IdeleGroup.unitEmbedding (𝓞 F) F a) := congrArg φ hfactor.symm
+    _ = φ (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) := congrArg φ hfactor.symm
     _ = 1 := hprincipal
 
 private theorem conductorLocalValue_eq_primeValue_pow
