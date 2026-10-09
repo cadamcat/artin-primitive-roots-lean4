@@ -16413,6 +16413,38 @@ private theorem rf_pairing_grouped_kernel_reflected_term
     rw [hInt, if_neg hGuard]
     simp only [hAll, tsum_zero]
 
+private theorem rf_pairing_reflected_term_reindex
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (Z : ℝ) (hZ : 0 < Z) :
+    (∑' q : FrozenIndex R r.h × S.SqfExtIdeal,
+      ∑' sd : Bd.B, ∑' sc : Bd.B,
+        reflectedTerm R (rowClass R r) r.h r.d Z (q.1, sd, sc, q.2)) =
+      ∑' p : FrozenIndex R r.h × Bd.B × Bd.B × S.SqfExtIdeal,
+        reflectedTerm R (rowClass R r) r.h r.d Z p := by
+  classical
+  let J := FrozenIndex R r.h × S.SqfExtIdeal
+  let I := J × Bd.B × Bd.B
+  let P := FrozenIndex R r.h × Bd.B × Bd.B × S.SqfExtIdeal
+  let f : P → ℂ := reflectedTerm R (rowClass R r) r.h r.d Z
+  let e : I ≃ P := {
+    toFun := fun p => (p.1.1, p.2.1, p.2.2, p.1.2)
+    invFun := fun p => ((p.1, p.2.2.2), p.2.1, p.2.2.1)
+    left_inv := by
+      rintro ⟨⟨t, c⟩, sd, sc⟩
+      rfl
+    right_inv := by
+      rintro ⟨t, sd, sc, c⟩
+      rfl }
+  have hs : Summable f := Summable.of_norm (rf_reflected_row_summable R r Z hZ)
+  have hsI : Summable (f ∘ e) := (e.summable_iff).2 hs
+  have hNested : (∑' p : I, (f ∘ e) p) =
+      ∑' q : J, ∑' sd : Bd.B, ∑' sc : Bd.B,
+        reflectedTerm R (rowClass R r) r.h r.d Z (q.1, sd, sc, q.2) := by
+    calc
+      _ = ∑' q : J, ∑' s : Bd.B × Bd.B, (f ∘ e) (q, s) := hsI.tsum_prod
+      _ = _ := tsum_congr (fun q => (hsI.prod_factor q).tsum_prod)
+  exact hNested.symm.trans (e.tsum_eq f)
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
