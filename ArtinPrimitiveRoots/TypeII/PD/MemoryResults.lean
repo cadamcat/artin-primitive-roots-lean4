@@ -88,6 +88,8 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanPadFacts
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SupportCells
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.ShiftBlocks
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.KernelSum
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.LastSlotMeasure
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.WeightedInjection
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Density
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Damping
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Adjoint
@@ -11618,6 +11620,210 @@ theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_prime_tuple_pad_kernel_
         (mul_nonneg hC.le hr)
     exact hsum.trans (mul_le_mul_of_nonneg_right hsquare
       (Finset.sum_nonneg (fun v hv => mul_nonneg (hmass v hv) (sq_nonneg _))))
+  · have hempty : T = ∅ := Finset.not_nonempty_iff_eq_empty.mp hTne
+    simp only [hempty, Finset.sum_empty, mul_zero, le_refl]
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- Fixed copied slots and memory preserve the finite clean pad-kernel bound under the actual state measure. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_common_memory_fibre_bound {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ C Cbox Y₀ : ℝ, 0 < C ∧ 0 < Cbox ∧ 1 ≤ Y₀ ∧
+      ∀ S : PDScale, Y₀ ≤ S.Y →
+      (∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) →
+      (∀ i : Fin K, Real.log 2/2 ≤ bandMass S.x (F.a i)) →
+      (∀ i : Fin K, ∀ p ∈ primeBand S.x (F.a i), (1/2 : ℝ) ≤ memoryBPrime S.x F.q_d p) →
+      ∀ w : ArchRoot, w.InRegion S → 0 < S.U → 0 < S.d₀ →
+      ∀ D : ℕ, (S.d₀ : ℝ) ≤ (D : ℝ) → (D : ℝ) < 2*(S.d₀ : ℝ) →
+      ∀ T : Finset (MemPoint S.x K),
+      (∀ s ∈ T, MemValid F S s ∧ ValidPrimeLists S.x K F.a s.2.1 ∧
+        sharedProduct s.2.1 = D ∧ S.Y ≤ (lastProduct s.2.1 : ℝ) ∧ envBox S w s.1 ∧
+        goodTestOne S.x S.Y (S.d₀ : ℝ) s.2.1 (transportedRatio w s.1)) →
+      (∀ s ∈ T, ∀ t ∈ T, s.2.2 = t.2.2 ∧
+        ∀ (i : Fin K) (j : Fin (slotCount S.x)), j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) →
+      ∀ r : ℝ, 0 ≤ r →
+      (∀ θ : ℝ, ¬ majorArc S.x S.Y F.A₀ θ →
+        ∀ M N : ℕ, (M : ℝ)*(N : ℝ) ≤ Cbox*S.Y →
+          (M : ℝ)+(N : ℝ) ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) →
+        ∀ a b s t : ℝ, ∀ g : ℕ × ℕ → ℂ,
+        let I := (Finset.range M).product (Finset.range N)
+        let Δ := fun i j : ℕ × ℕ =>
+          (a+(i.1 : ℝ))*(t+(j.2 : ℝ))-(b+(i.2 : ℝ))*(s+(j.1 : ℝ))
+        (∑ i ∈ I, ‖∑ j ∈ I,
+          (F.psi (Δ i j/S.Y) : ℂ)*additiveCharacter (θ*Δ i j)*g j‖^2) ≤
+          (S.Y*r)^2*(∑ j ∈ I, ‖g j‖^2)) →
+      ∀ d e : MemPoint S.x K → ℂ,
+      (∀ s ∈ T, ‖d s‖ ≤ 1) → (∀ s ∈ T, ‖e s‖ ≤ 1) →
+      ∀ f : MemPoint S.x K → ℂ,
+      let μ := fun s : MemPoint S.x K =>
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+      let k := fun s t : MemPoint S.x K =>
+        if (D : ℤ) ∣ det2 s.1 t.1 then
+          geometricMultiplier F S D (lastProduct t.2.1) (lastProduct s.2.1)
+            (det2 s.1 t.1/(D : ℤ)) else 0
+      (∑ s ∈ T, memMeasure F S s*‖d s*(∑ t ∈ T, k s t*(μ t : ℂ)*e t*f t)‖^2) ≤
+        (C*r)^2*(∑ t ∈ T, memMeasure F S t*‖f t‖^2) := by
+  classical
+  obtain ⟨C, Cbox, Y₀, hC, hCbox, hY₀, hpad⟩ := clean_prime_tuple_pad_kernel_bound F hF
+  refine ⟨C, Cbox, Y₀, hC, hCbox, hY₀, ?_⟩
+  intro S hY hbands hV hb w hw hU hd₀ D hDlow hDhi T hT hcommon r hr hfibre d e hd he f
+  by_cases hTne : T.Nonempty
+  · obtain ⟨z, hz⟩ := hTne
+    let Φ : MemPoint S.x K → ((ℤ × ℤ) × (Fin K → ℕ)) :=
+      fun s => (s.1, fun i => s.2.1 i (lastSlot S.x))
+    have hΦ : Set.InjOn Φ (T : Set (MemPoint S.x K)) := by
+      intro s hs t ht heq
+      have hpos : s.1 = t.1 :=
+        congrArg (fun u : ((ℤ × ℤ) × (Fin K → ℕ)) => u.1) heq
+      have hlast : (fun i => s.2.1 i (lastSlot S.x)) =
+          (fun i => t.2.1 i (lastSlot S.x)) := congrArg Prod.snd heq
+      refine Prod.ext hpos (Prod.ext ?_ (hcommon s hs t ht).1)
+      funext i j
+      by_cases hj : j.val < momentJ S.x
+      · exact (hcommon s hs t ht).2 i j hj
+      · have hjlast : j = lastSlot S.x := by
+          apply Fin.ext
+          have hlt := j.isLt
+          dsimp only [slotCount] at hlt
+          dsimp only [lastSlot]
+          omega
+        subst j
+        exact congrFun hlast i
+    let U : Finset ((ℤ × ℤ) × (Fin K → ℕ)) := T.image Φ
+    let pre : ((ℤ × ℤ) × (Fin K → ℕ)) → MemPoint S.x K :=
+      fun u => if hu : u ∈ U then Classical.choose (Finset.mem_image.mp hu) else z
+    have hpre (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ U) :
+        pre u ∈ T ∧ Φ (pre u) = u := by
+      dsimp only [pre]
+      rw [dif_pos hu]
+      exact Classical.choose_spec (Finset.mem_image.mp hu)
+    have hpreΦ (s : MemPoint S.x K) (hs : s ∈ T) : pre (Φ s) = s := by
+      have hmem : Φ s ∈ U := Finset.mem_image.mpr ⟨s, hs, rfl⟩
+      exact hΦ (hpre (Φ s) hmem).1 hs (hpre (Φ s) hmem).2
+    have hUt (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ U) :
+        IsMarkedPrimeTuple S.x K F.a u.2 ∧ S.Y ≤ (tupleProduct u.2 : ℝ) ∧
+          envBox S w u.1 ∧ Int.gcd u.1.1 u.1.2 = 1 := by
+      obtain ⟨s, hs, rfl⟩ := Finset.mem_image.mp hu
+      have ht := hT s hs
+      exact ⟨(fun i => ht.1.2.1 i (lastSlot S.x)), ht.2.2.2.1, ht.2.2.2.2.1, ht.1.1⟩
+    let P : ((ℤ × ℤ) × (Fin K → ℕ)) → PrimeLists S.x K := fun u => (pre u).2.1
+    have hP (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ U) :
+        ValidPrimeLists S.x K F.a (P u) ∧ sharedProduct (P u) = D ∧
+          goodTestOne S.x S.Y (S.d₀ : ℝ) (P u) (transportedRatio w u.1) := by
+      have ht := hT (pre u) (hpre u hu).1
+      have hpos : (pre u).1 = u.1 := congrArg Prod.fst (hpre u hu).2
+      refine ⟨ht.2.1, ht.2.2.1, ?_⟩
+      simpa only [hpos] using ht.2.2.2.2.2
+    let ν := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (u.2 i)
+    let μ := fun s : MemPoint S.x K =>
+      ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+    let pad := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      if (D : ℤ) ∣ det2 u.1 v.1 then
+        geometricMultiplier F S D (tupleProduct v.2) (tupleProduct u.2)
+          (det2 u.1 v.1/(D : ℤ)) else 0
+    let k := fun s t : MemPoint S.x K =>
+      if (D : ℤ) ∣ det2 s.1 t.1 then
+        geometricMultiplier F S D (lastProduct t.2.1) (lastProduct s.2.1)
+          (det2 s.1 t.1/(D : ℤ)) else 0
+    let dβ := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) => d (pre u)
+    let eβ := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) => e (pre u)
+    let kβ := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) => dβ u*pad u v*eβ v
+    have hdβ (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ U) : ‖dβ u‖ ≤ 1 :=
+      hd (pre u) (hpre u hu).1
+    have heβ (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ U) : ‖eβ u‖ ≤ 1 :=
+      he (pre u) (hpre u hu).1
+    have hkβ (g : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ) :
+        (∑ u ∈ U, ν u*‖∑ v ∈ U, kβ u v*(ν v : ℂ)*g v‖^2) ≤
+          (C*r)^2*(∑ v ∈ U, ν v*‖g v‖^2) := by
+      have hbound := hpad S hY hbands hV hb w hw hU hd₀ D hDlow hDhi U hUt P hP
+        r hr hfibre dβ eβ hdβ heβ g
+      change (∑ u ∈ U, ν u*‖dβ u*(∑ v ∈ U, pad u v*(ν v : ℂ)*eβ v*g v)‖^2) ≤
+        (C*r)^2*(∑ v ∈ U, ν v*‖g v‖^2) at hbound
+      have hrow (u : (ℤ × ℤ) × (Fin K → ℕ)) :
+          (∑ v ∈ U, kβ u v*(ν v : ℂ)*g v) =
+            dβ u*(∑ v ∈ U, pad u v*(ν v : ℂ)*eβ v*g v) := by
+        rw [Finset.mul_sum]
+        exact Finset.sum_congr rfl (fun v hv => by dsimp only [kβ]; ring)
+      simp_rw [hrow]
+      exact hbound
+    let γ := fun s : MemPoint S.x K =>
+      (∏ i : Fin K, ∏ j : Fin (slotCount S.x),
+        if j.val < momentJ S.x then memoryNu S.x K F.a F.q_d i (s.2.1 i j) else 1)*
+      ∏ i : Fin K, (((s.2.2 i).map fun e => memoryNu S.x K F.a F.q_d i e.1).prod /
+        ((s.2.2 i).length.factorial : ℝ))
+    let W : ℝ := γ z
+    have hlog : 0 < Real.log 2 := Real.log_pos (by norm_num)
+    have hν0 (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+        0 ≤ memoryNu S.x K F.a F.q_d i p :=
+      (pd4c_memoryNu_le_twice_mu F.q_d i p (Finset.mem_filter.mp hp).2.1.pos
+        ((div_pos hlog (by norm_num : (0 : ℝ) < 2)).trans_le (hV i)) (hb i p hp)).1
+    have hW : 0 ≤ W := by
+      dsimp only [W, γ]
+      apply mul_nonneg
+      · apply Finset.prod_nonneg
+        intro i hi
+        apply Finset.prod_nonneg
+        intro j hj
+        by_cases hjval : j.val < momentJ S.x
+        · rw [if_pos hjval]
+          exact hν0 i _ ((hT z hz).1.2.1 i j)
+        · rw [if_neg hjval]
+          norm_num
+      · apply Finset.prod_nonneg
+        intro i hi
+        apply div_nonneg
+        · apply List.prod_nonneg
+          intro a ha
+          obtain ⟨particle, hparticle, hEq⟩ := List.mem_map.mp ha
+          rw [← hEq]
+          exact hν0 i particle.1 ((hT z hz).1.2.2 i particle hparticle).1
+        · exact Nat.cast_nonneg _
+    have hγ (s : MemPoint S.x K) (hs : s ∈ T) : γ s = γ z := by
+      obtain ⟨hmem, hprefix⟩ := hcommon s hs z hz
+      have hcopy :
+          (∏ i : Fin K, ∏ j : Fin (slotCount S.x),
+            if j.val < momentJ S.x then memoryNu S.x K F.a F.q_d i (s.2.1 i j) else 1) =
+          (∏ i : Fin K, ∏ j : Fin (slotCount S.x),
+            if j.val < momentJ S.x then memoryNu S.x K F.a F.q_d i (z.2.1 i j) else 1) := by
+        apply Finset.prod_congr rfl
+        intro i hi
+        apply Finset.prod_congr rfl
+        intro j hj
+        by_cases hjval : j.val < momentJ S.x
+        · rw [if_pos hjval, if_pos hjval, hprefix i j hjval]
+        · simp only [if_neg hjval]
+      dsimp only [γ]
+      rw [hcopy, hmem]
+    have hmeasure (s : MemPoint S.x K) (hs : s ∈ T) :
+        memMeasure F S s = W*ν (Φ s) := by
+      rw [clean_shared_memory_measure_factorization F S s (hT s hs).1]
+      change γ s*ν (Φ s) = W*ν (Φ s)
+      rw [hγ s hs]
+    have hphysical (s : MemPoint S.x K) (hs : s ∈ T) (t : MemPoint S.x K) (ht : t ∈ T) :
+        kβ (Φ s) (Φ t) = d s*k s t*e t := by
+      dsimp only [kβ, dβ, eβ]
+      rw [hpreΦ s hs, hpreΦ t ht]
+      rfl
+    have hrow (s : MemPoint S.x K) (hs : s ∈ T) :
+        (∑ t ∈ T, kβ (Φ s) (Φ t)*(ν (Φ t) : ℂ)*f t) =
+          d s*(∑ t ∈ T, k s t*(μ t : ℂ)*e t*f t) := by
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro t ht
+      rw [hphysical s hs t ht]
+      change d s*k s t*e t*(μ t : ℂ)*f t = d s*(k s t*(μ t : ℂ)*e t*f t)
+      ring
+    have hout :
+        (∑ s ∈ T, (W*ν (Φ s))*‖∑ t ∈ T, kβ (Φ s) (Φ t)*(ν (Φ t) : ℂ)*f t‖^2) =
+          (∑ s ∈ T, memMeasure F S s*‖d s*(∑ t ∈ T, k s t*(μ t : ℂ)*e t*f t)‖^2) := by
+      apply Finset.sum_congr rfl
+      intro s hs
+      rw [← hmeasure s hs, hrow s hs]
+    have henergy : (∑ t ∈ T, (W*ν (Φ t))*‖f t‖^2) =
+        ∑ t ∈ T, memMeasure F S t*‖f t‖^2 :=
+      Finset.sum_congr rfl (fun t ht => by rw [← hmeasure t ht])
+    have hbound := finite_weighted_injective_kernel_transfer T Φ hΦ ν kβ (C*r) W hW hkβ f
+    rw [hout, henergy] at hbound
+    exact hbound
   · have hempty : T = ∅ := Finset.not_nonempty_iff_eq_empty.mp hTne
     simp only [hempty, Finset.sum_empty, mul_zero, le_refl]
 
