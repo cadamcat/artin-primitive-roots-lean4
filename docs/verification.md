@@ -32,3 +32,17 @@ It builds the solution module `ArtinPrimitiveRoots.Target` and the challenge mod
 3. [Verification/Axioms.lean](../Verification/Axioms.lean) prints the axioms of `ArtinPrimitiveRootsConjecture.artin_primitive_roots_infinite`, and `scripts/check_axioms.py` accepts only `propext`, `Classical.choice` and `Quot.sound`. An open proof is reported as `sorryAx` and makes the script exit with status 2; any other axiom, or a missing report, is a failure.
 
 The Lean checks run with `--trust=0`. They check the project modules and the statement correspondence; they do not rebuild Mathlib from source. For a replay of every declaration by the kernel, including the dependencies, run `lake env leanchecker --fresh ArtinPrimitiveRoots.Target` after the build.
+
+## Independent check of v1.0.0
+
+On 9–10 October 2026 (UTC), release `v1.0.0` was cloned from GitHub into an empty scratch directory on a 32-core compute node and checked with the steps of [Fresh checkout](#fresh-checkout), in order:
+
+| Step | Result |
+|---|---|
+| `lake update` | exit 1 with the `iut: Lake resolved an unexpected checkout at …` hook error described above; the revisions it resolved for all 43 packages equal those in `lake-manifest.json` |
+| `scripts/apply-oai-patches.sh` | exit 0; patches applied to 23 of OpenAI's pinned packages |
+| `lake exe cache get`, then `lake build` | exit 0 (12143 jobs, 87 minutes); no errors and no `sorry`. The Mathlib cache files were already in the local cache, so nothing was downloaded |
+| `#print axioms ArtinPrimitiveRootsConjecture.artin_primitive_roots_infinite` | `propext`, `Classical.choice` and `Quot.sound` only |
+| `lake env leanchecker --fresh ArtinPrimitiveRoots.Target` | exit 0 (56 minutes): the kernel replayed the declarations of the solution module and of everything it imports, including the cached dependency artifacts |
+
+`scripts/verify.sh` and Comparator were not part of this run. At the time of the check, the release differed from the current tag `v1.0.0` (commit `c4e54a355cf5b96b389731e45676351fb23e0c0a`) only in seven lines of documentation comments, which were removed afterwards.
