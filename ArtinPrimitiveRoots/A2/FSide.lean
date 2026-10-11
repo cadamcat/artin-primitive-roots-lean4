@@ -12,7 +12,7 @@ analytic statements are `sorry`; the exponent arithmetic of 06-zero-free.tex and
 identity 05-poisson.tex:692-694 are *proved* (machine check of the paper's numbers).
 
 Objects that depend on A1's S-adic layer (`F_S`, `e(x)`, `R = O_S`, allowed generators,
-`χ_𝔭`, `B_m(Z)`) are specified in `A2-DESIGN.md` §5 by A1 node IDs and are not restated here.
+`χ_𝔭`, `B_m(Z)`) come from A1 and are not restated here.
 
 * §1 Scales and contour exponents (06:371-387) and the margin table (06:653-674), checked.
 * §2 Zero detector: ideal Möbius function, `α_U`, the mollifier `D_U` (06:188-215).

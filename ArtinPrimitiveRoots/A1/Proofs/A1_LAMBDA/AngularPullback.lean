@@ -13,7 +13,7 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- A1-LAMBDA IMPL: Unfold angularType, infiniteComponent and composition; use hC and N.angular_norm. The m=±1 exponents use the frozen completion equivalence.
-Guide: sol-thin-a1/PROOFS.md:428-439. Uses: Definitions. -/
+Uses: Definitions. -/
 theorem relative_norm_angular_pullback (D : FieldData F) (ι : E →ₐ[ℚ] F)
     (N : RelativeNormData D ι)
     (C : ContinuousMonoidHom (NumberField.IdeleClassGroup (𝓞 F) F) (NumberField.IdeleClassGroup OE E))

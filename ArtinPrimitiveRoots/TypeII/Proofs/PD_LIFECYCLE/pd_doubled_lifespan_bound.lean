@@ -636,7 +636,7 @@ private lemma pdLifeDouble_orphan_sum_bound {K : ℕ} (F : PDFix K) (S : PDScale
 
 /-- Uniform explicit product bound with one factor two per ghost birth. Orphan endpoints
 are bounded by the geometric hit series; active endpoints by their finite cardinality.
-Guide runs/lanes/sol-thin-pdmem/PROOFS.md:482–503. Uses pd_lifecycle_parameters and
+Uses pd_lifecycle_parameters and
 pd_active_run_count; feeds pd_truncation_tail_absorb. The b-prime denominators are already
 inside the majorant, so no baseline factor is lost. -/
 theorem pd_doubled_lifespan_bound (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :

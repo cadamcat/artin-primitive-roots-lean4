@@ -12,7 +12,7 @@ namespace ArtinPrimitiveRoots.A1.Spec
 variable {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
 
 /-- Nontriangular cosets give denominator-bounded rows with nonzero first entry
-and no repeated unit orbit. Guide: `sol-thin-spec/PROOFS.md:351`. Uses `E1_eis_def`;
+and no repeated unit orbit. Uses `E1_eis_def`;
 feeds `nontriangular_siegel_summable`. -/
 theorem nontriangular_rows_unit_orbit (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (σ σ' : SL(2,F)) :

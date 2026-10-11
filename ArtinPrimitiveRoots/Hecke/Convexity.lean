@@ -8,7 +8,7 @@ import ArtinPrimitiveRoots.Hecke.Proofs.HK_H3.Uniqueness
 /-!
 # Hecke L-function package: uniform convexity (H3, H3')
 
-Frozen interface. Design: `research/design/A2-HeckeAPI.lean` and `A2-DESIGN.md` (Opus A2 sub-agent, 2026-10-07).
+Frozen interface.
 -/
 
 set_option autoImplicit false

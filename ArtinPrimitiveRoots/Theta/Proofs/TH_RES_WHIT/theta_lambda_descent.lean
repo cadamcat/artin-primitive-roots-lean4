@@ -19,7 +19,6 @@ variable {P : CoverPackage D S H A} {G : GlobalDatum P}
 
 /-- Descend the residue Whittaker coefficient through the kernel of M(s0), then extend the
 resulting linear functional from its range to all local functions by a vector space complement.
-Guide: sol-thin-thglobal/PROOFS.md:923–929.
 Uses: sectionSpace_family_spanning, analyticFamily_add_smul, ThetaResidueLaws.continuation,
 ThetaResidueLaws.dependsOnM, ThetaResidueLaws.linearTranslate, ThetaResidueLaws.fourierCoeff.
 Feeds: theta_exterior_whittaker via theta_lambda_whittaker. -/

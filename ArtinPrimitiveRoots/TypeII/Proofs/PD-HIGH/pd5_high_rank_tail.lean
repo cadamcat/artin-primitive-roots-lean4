@@ -40,7 +40,7 @@ private theorem pd5_high_tail_large_log (K : ℕ) (aAtom : ℝ) (haAtom : 0 < aA
 
 /-- Finite rank grouping, geometric tail and the exact frozen exponent; the existing 3r mass
 bound replaces the guide's proposed 2r decoration proof without changing the conclusion.
-Guide `runs/lanes/sol-thin-pd5/PROOFS.md:456–493`; uses pd5_scale_facts,
+Uses pd5_scale_facts,
 pd5_rank_support_mass and the supplied fixed-system bound; feeds frozen history_rank_high. -/
 theorem pd5_high_rank_tail (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁)
     (K : ℕ) (F : PDFix K) (hF : F.Valid) (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ)

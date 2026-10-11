@@ -898,7 +898,7 @@ private def memoryShapeIndexEquiv {x : ℝ} {K : ℕ} (T : Finset (MemPoint x K)
     rfl
 
 
-/-- Averaging over memory permutations contracts the weighted norm on permutation-closed sets.  The hypothesis `0 ≤ memMeasure` was added on 2026-10-07: for arbitrary data the measure can be negative and the inequality fails (lane `sol-gate-b2`). -/
+/-- Averaging over memory permutations contracts the weighted norm on permutation-closed sets.  The hypothesis `0 ≤ memMeasure` was added on 2026-10-07: for arbitrary data the measure can be negative and the inequality fails. -/
 theorem memorySym_contraction {K : ℕ} (F : PDFix K) (S : PDScale)
     (T : Finset (MemPoint S.x K)) (f : MemPoint S.x K → ℂ)
     (hμ : ∀ s, 0 ≤ memMeasure F S s)

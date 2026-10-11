@@ -109,7 +109,7 @@ theorem torusCoeff_residue_congr_of_series {P : CoverPackage D S H A} {G : Globa
     hfη hf'η hr hr' hseries
 
 /-- Transport a nonzero-frequency residue coefficient to the chosen first coefficient.
-Guide: sol-thin-thglobal/PROOFS.md:862–869. Uses adapted-domain existence,
+Uses adapted-domain existence,
 analytic_residue_unique, torusCoeff_analytic, and eisenstein_whittaker.
 Feeds the frozen theta_fourierCoeff by definitional identification of the extracted data. -/
 theorem theta_fourierCoeff_assembly {P : CoverPackage D S H A} {G : GlobalDatum P}

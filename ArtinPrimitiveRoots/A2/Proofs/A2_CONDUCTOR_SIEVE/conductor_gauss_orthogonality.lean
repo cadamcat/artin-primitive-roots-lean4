@@ -212,7 +212,6 @@ private theorem conductor_mulChar_parseval {R : Type*} [CommRing R] [Fintype R]
 
 /-- The finite Gauss expansion and ALL unit-character orthogonality bound a
 subset of primitive characters. The unit residue ring is included.
-Guide: sol-thin-a2zf/PROOFS.md:702–719.
 Uses OAI primitive_character_expansion and primitive_gaussSum_norm_sq; feeds dyad glue. -/
 theorem conductor_gauss_orthogonality {R ι : Type*} [CommRing R] [Fintype R]
     (ψ : AddChar R ℂ) (hψ : ψ.IsPrimitive)

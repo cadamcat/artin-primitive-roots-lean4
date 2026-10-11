@@ -16,7 +16,7 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- A1-LAMBDA IMPL: Obtain angular and primary ideal characters, build BaseLocalData, descend, and unfold unramifiedAt/primeValue with the single-place formulas.
-Guide: sol-thin-a1/PROOFS.md:428-439. Uses: AngularCharacter, PrimaryIdealCharacter, BaseLocalConstruction, LocalCharacterDescent. -/
+Uses: AngularCharacter, PrimaryIdealCharacter, BaseLocalConstruction, LocalCharacterDescent. -/
 theorem base_character_exists (σ : E →+* ℂ) :
     ∃ χ : LambdaChar E, unitary χ ∧ simpleAngularType χ ∧
       ∀ v : FinPlace E, lambda ∉ v.asIdeal →

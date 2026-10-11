@@ -5,7 +5,7 @@ import ArtinPrimitiveRoots.Hecke.Theta.RayMellinAgreement
 /-!
 # Hecke L-function package: continuation (H1, H2)
 
-Frozen interface. Design: `research/design/A2-HeckeAPI.lean` and `A2-DESIGN.md` (Opus A2 sub-agent, 2026-10-07).
+Frozen interface.
 -/
 
 set_option autoImplicit false

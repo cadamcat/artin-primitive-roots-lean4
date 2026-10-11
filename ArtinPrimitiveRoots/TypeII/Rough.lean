@@ -761,7 +761,7 @@ theorem rough_square_error_pointwise (x γ wMax δ M : ℝ) (m : ℕ)
     simp [hrough']
 
 /-- `t2:square-error` — 08-type-ii.tex:351-371. The dyad lies below `x^{wMax}` (`2M ≤ x^{wMax}`), which bounds the
-number of prime factors by `Jγ`; added 2026-10-07 after lane `r2` refuted the form without it. -/
+number of prime factors by `Jγ`; added 2026-10-07: without it the form fails. -/
 theorem square_error (γ wMax δ : ℝ) (hγ : 0 < γ) (hδ : 0 < δ)
     (hγw : γ < wMax) :
     ∃ C x₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧

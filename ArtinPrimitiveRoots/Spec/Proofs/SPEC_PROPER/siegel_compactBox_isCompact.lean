@@ -83,7 +83,7 @@ private theorem siegel_balanced_height_bounds (y : InfinitePlace F → ℝ) (B c
     simpa [Real.exp_log (hy w)] using this
 
 /-- A bounded product height in a balanced cusp chart gives a compact box.
-Guide: sol-thin-spec/PROOFS.md:204 and 230–234 (R13 first conjunct only).
+R13, first conjunct only.
 Uses G1_h3_basics, R3_cusps_finite for the positive lower height, and d.P_bounded;
 feeds siegel_low_height_overlap_finite without using R13's orbit-cover conclusion. -/
 theorem siegel_compactBox_isCompact (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]

@@ -59,7 +59,7 @@ private theorem conductorCastRealization
 
 /-- Transport each fixed local group injectively to its conductor/residue pair,
 apply the Gauss bound and the dual additive estimate. Constants precede both lengths
-and the local components. Guide: sol-thin-a2zf/PROOFS.md:666–732.
+and the local components.
 Uses primitive_conductor_residue_bridge/determines, conductor_gauss_orthogonality,
 and conductor_additive_sieve_apply; feeds the dyadic Cauchy–Schwarz step. -/
 theorem conductor_exterior_dyad_bound (S : A1.SData F CE condη)

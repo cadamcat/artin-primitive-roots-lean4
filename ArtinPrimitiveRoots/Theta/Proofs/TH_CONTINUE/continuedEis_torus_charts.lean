@@ -369,7 +369,6 @@ private theorem continuedEis_infCompact_commute_rep {F : Type} [Field F] [Number
 /-- Keep the finite component fixed along the left archimedean unipotent orbit and express
 the orbit in continuous positive classical coordinates. On closure of a bounded parameter
 set the coordinate image is compact and its heights have positive minima.
-Guide: `runs/lanes/sol-thin-thglobal/PROOFS.md:812–815`.
 Uses `continuedEis_component_representatives`, reconstructed component formulas and
 automorphy/level/compact invariance. No analytic
 integral argument is included. Consumed by `continuedEis_laurent_torus`. -/

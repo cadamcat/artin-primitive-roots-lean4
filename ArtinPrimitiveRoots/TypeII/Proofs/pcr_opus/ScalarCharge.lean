@@ -1,7 +1,6 @@
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_active_run_count
 
-/-! Exact per-prime scalar charge of a lifespan (guide
-`runs/lanes/sol-thin-pdmem/PROOFS.md:434–449`): the rho factors cancel, and the raw charge
+/-! Exact per-prime scalar charge of a lifespan: the rho factors cancel, and the raw charge
 is the signed lifespan charge times one band inverse per active run. -/
 
 set_option autoImplicit false

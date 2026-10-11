@@ -91,7 +91,7 @@ private lemma pdLifeMemoryRuns_pos {K : ℕ} (S : PDScale)
   exact Finset.card_pos.mpr ⟨j₀, Finset.mem_filter.mpr ⟨Finset.mem_univ _, hstart⟩⟩
 
 /-- A lifespan assignment has at most KN pending non-ghost primes at every tested state.
-Guide runs/lanes/sol-thin-pdmem/PROOFS.md:454–467. Uses pd_active_run_count;
+Uses pd_active_run_count;
 feeds pd_truncation_choice_majorant. In each group the union of active primes has cardinal
 at most M+N; remove the M current active primes and add at most the ghost-birth count. -/
 theorem pd_life_memory_bound (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :

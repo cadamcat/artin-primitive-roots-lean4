@@ -6,7 +6,7 @@ open scoped ContDiff
 namespace ArtinPrimitiveRoots.A1.Spec
 
 /-- A nonzero nonnegative smooth bump inside the fixed radial window.
-Guide: `sol-thin-spec/PROOFS.md:402`. Uses Mathlib smooth bumps; supplies the
+Uses Mathlib smooth bumps; supplies the
 kernel existence conjuncts of the frozen `S1_smoothing`. -/
 theorem radialKernel_bump :
     ∃ k₀ : ℝ → ℝ, ContDiff ℝ ∞ k₀ ∧ (∀ t, 0 ≤ k₀ t) ∧

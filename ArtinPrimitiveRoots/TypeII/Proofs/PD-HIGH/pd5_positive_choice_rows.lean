@@ -35,7 +35,7 @@ private theorem triangular_coordinate_bound (P : Finset ℕ) (ν : ℕ → ℝ)
 
 /-- Prefix-dependent prescribed coordinates cost one atom each. A prescription reads only
 strictly earlier coordinates, including earlier coordinates of the same batch.
-Guide `runs/lanes/sol-thin-pd5/PROOFS.md:207–243`; uses finite sum decomposition only;
+Uses finite sum decomposition only;
 feeds pd5_positive_choice_rows. LEAD. -/
 theorem pd5_triangular_birth_sum_le (n : ℕ) (P : Fin n → Finset ℕ)
     (ν : Fin n → ℕ → ℝ) (R : Finset (Fin n)) (Δ : ℝ) (hΔ : 0 ≤ Δ)
@@ -180,7 +180,7 @@ theorem pd5_triangular_birth_sum_le (n : ℕ) (P : Fin n → Finset ℕ)
         simp [R₀, P₀, ν₀, c]
 
 /-- Uniform finite positive-choice rows with performed flags and chronological prescriptions.
-Guide `runs/lanes/sol-thin-pd5/PROOFS.md:151–327`; uses pd5_scale_facts,
+Uses pd5_scale_facts,
 pd5_triangular_birth_sum_le, the deletion binomial sum and uniform geometric target count;
 feeds pd5_fixed_system_abs_estimate and frozen history_rank_high. LEAD. -/
 theorem pd5_positive_choice_rows (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁)

@@ -39,7 +39,7 @@ private lemma lambda_not_mem_basePlace_of_not_mem_Sf (S : SData F CE condη)
   exact hv (S.over6 v h6)
 
 /-- A1-LAMBDA IMPL: assemble the angular norm pullback and its exterior prime values.
-Guide: sol-thin-a1/PROOFS.md:428-439. Uses: AlignedEmbedding, BaseCharacter,
+Uses: AlignedEmbedding, BaseCharacter,
 RelativeNormConstruction, NormDescent, PrimePullback, AngularPullback. -/
 theorem lambda_pullback_data (D : FieldData F) (S : SData F CE condη) :
     ∃ ι : E →ₐ[ℚ] F, ι (algebraMap OE E omega) = D.ζ12 ^ 4 ∧

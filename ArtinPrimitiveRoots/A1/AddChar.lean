@@ -6,9 +6,7 @@ import OAI.NumberTheory.DirichletL.GaussSum.ChineseRemainder
 /-!
 # A1 interface, §4: additive character and Gauss sums
 
-Frozen interface of part A1 (paper §§2, 2a, 3, App. 10). Each `sorry` is owned by a package of
-`research/design/A1-DESIGN.md` §3, named in its docstring. Design: `research/design/A1-Interface.lean`
-(Opus A1 sub-agent, 2026-10-07).
+Frozen interface of part A1 (paper §§2, 2a, 3, App. 10).
 -/
 
 set_option autoImplicit false
@@ -37,7 +35,7 @@ structure AddCharData (F : Type) [Field F] [NumberField F] where
     (∏ᶠ v, ψ v (algebraMap F _ z)) *
       Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ))) = 1
   /-- `ψ_v` is trivial on `O_v` at every finite place (Tate's `ψ_v` has conductor `𝔇_v⁻¹ ⊇ O_v`).
-  Added 2026-10-07 after lane `a1-psi` showed `SData.e_diag_eq` false without it. -/
+  Added 2026-10-07: `SData.e_diag_eq` is false without it. -/
   integral : ∀ (v : FinPlace F) (x : v.adicCompletion F), x ∈ v.adicCompletionIntegers F →
     ψ v x = 1
   /-- at `v ∤ 𝔇`, `ψ_v` has conductor `O_v`. -/

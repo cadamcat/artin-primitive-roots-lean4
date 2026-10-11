@@ -20,7 +20,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_TAME_SPLIT.Units
 /-!
 # P-COVER (route C): the cubic cover of `PGL₂` — top-node statements (design draft)
 
-Blueprint: `research/blueprint/A1-P-COVER.md`. Imports the frozen A1 interface only.
+Imports the frozen A1 interface only.
 
 The section `Core` is the **shared theta core**: it is copied verbatim into every route-C draft
 (`A1-P-TORUS-IND.lean`, `A1-P-LOCAL-INT.lean`, …) and is to be frozen together with P-COVER.

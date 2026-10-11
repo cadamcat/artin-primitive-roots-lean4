@@ -7,7 +7,7 @@ import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».P2.CaseB
 /-!
 # A2-QS-POISSON, part P2: unweighted ideal Poisson with the residue functional at zero
 
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:363-378`.  Uses the completed Dedekind zeta of
+Uses the completed Dedekind zeta of
 AINTLIB (`DedekindResidue.completedDedekindZetaEntire`, functional equation
 `Hecke.dedekind_completed`, order bound `Hecke.dedekind_order_one`), `qs_transform_mellin_P0`,
 `qs_transform_bounds_P0`, `qs_tail_bound_M1`.
@@ -30,7 +30,7 @@ namespace ArtinPrimitiveRoots.A2
 variable {K : Type} [Field K] [NumberField K]
 
 /-- P2 (OPUS): unweighted ideal Poisson with explicit residue functional at zero, for the
-square-variable weights `h(y²)` and `(T h)(y²)` (found:363-370):
+square-variable weights `h(y²)` and `(T h)(y²)`:
 `Σ'_{b ≠ 0} f(N b / Y) = ρ_K Y Mellin(f)(1) + R_K(f) + Y Σ'_{b ≠ 0} (T f)(Y N b)`,
 both series absolutely summable. -/
 theorem qs_unweighted_poisson_residue_P2 [IsTotallyComplex K]
@@ -161,7 +161,7 @@ private theorem qs_dvd_tsum_rescale_P2 (e : Ideal (𝓞 K)) (he : e ≠ ⊥)
 
 /-- P2' (IMPL): the coprime square-variable sum split into the five pieces
 (Möbius `Σ_{e∣𝔫} μ(e) 1_{e∣b}`, P2 at scale `Z/N e` for `N e ≤ Zhi`, direct sums for
-`N e > Zhi`; dual sums with `N e ≤ Ylo` go to the tail).  Guide found:366-367, 376-378. -/
+`N e > Zhi`; dual sums with `N e ≤ Ylo` go to the tail). -/
 theorem qs_coprime_square_pieces_P2 [IsTotallyComplex K]
     (F : ℝ → ℂ) (hF : IsQSSquareWeight K F) (Z : ℝ) (hZ : 0 < Z) (𝔫 : Ideal (𝓞 K))
     (h𝔫 : 𝔫 ≠ ⊥) (Ylo Zhi : ℝ) (hYZ : Ylo ≤ Zhi) :

@@ -8,8 +8,7 @@ import Mathlib.MeasureTheory.Measure.Haar.Basic
 /-!
 # A1-FOURIER: shared definitions
 
-Shared objects for the abstract Poisson-summation route on `F_S / R`
-(lane `a1-poisson-opus`, see `STATEMENTS.md` there).
+Shared objects for the abstract Poisson-summation route on `F_S / R`.
 
 * `SData.IsFSTensorSum S g`: `g` is a finite sum of tensors
   `x ↦ (∏_{v ∈ S_f} φ_v (x_v)) * Φ (x_∞)` with locally constant, compactly supported

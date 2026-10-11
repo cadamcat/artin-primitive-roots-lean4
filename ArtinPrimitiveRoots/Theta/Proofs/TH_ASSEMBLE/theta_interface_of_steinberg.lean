@@ -9,7 +9,7 @@ open ArtinPrimitiveRoots.A1
 variable {F : Type} [Field F] [NumberField F]
 
 /-- The corrected interface retains the produced CoverPackage and its canonical topology.
-Guide: sol-thin-thglobal/PROOFS.md:1225–1235. Uses frozen exists_coverPackage and
+Uses frozen exists_coverPackage and
 the supplied exists_thetaFamily constructor, never the parked P.tc-only interface. -/
 theorem theta_interface_from_family_constructor (D : FieldData F) {CE : ℕ}
     {condη : Ideal (𝓞 F)} (S : SData F CE condη) (H : HilbertData F)

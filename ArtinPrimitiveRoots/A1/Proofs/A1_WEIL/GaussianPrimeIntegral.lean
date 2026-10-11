@@ -23,7 +23,7 @@ local instance gaussianPrimeIntegralBorel (v : FinPlace F) :
     BorelSpace (v.adicCompletion F) := ⟨rfl⟩
 
 /-- Compute the stabilized uniformizer Gaussian as the exact exterior residue square sum.
-Guide: PROOFS.md:476–477. Uses: A.integral; A.trivial_on_F; A.unramified; W.stable; residue-ball cosets. -/
+Uses: A.integral; A.trivial_on_F; A.unramified; W.stable; residue-ball cosets. -/
 theorem exterior_prime_index_square_sum (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
     (W : LocalGaussianData A) (v : FinPlace F) (hv : v ∉ S.Sf)
     (p : Fˣ) (hp : S.IsGen (p : F) v.asIdeal) :

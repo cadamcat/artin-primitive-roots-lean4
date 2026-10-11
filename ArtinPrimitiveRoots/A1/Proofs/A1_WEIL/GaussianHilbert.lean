@@ -54,7 +54,7 @@ private theorem quadratic_hilbert_square (D : FieldData F) (H : HilbertData F)
 
 /-- Cubing the sextic Hilbert pairing has exactly the square subgroup as its radical.
 This isolates the Hilbert nondegeneracy needed for the Gaussian comparison.
-Guide: PROOFS.md:474–475; uses only the frozen Hilbert multiplicativity,
+Uses only the frozen Hilbert multiplicativity,
 sixth-power vanishing, and nondegeneracy fields. -/
 theorem quadratic_hilbert_trivial_iff_square (D : FieldData F) (H : HilbertData F)
     (v : FinPlace F) (a : (v.adicCompletion F)ˣ) :
@@ -162,7 +162,7 @@ private theorem quadratic_hilbert_diagonal (D : FieldData F) (H : HilbertData F)
     exact inv_eq_one.mp hti'
 
 /-- The quadratic Hilbert character is trivial on every nonzero binary quadratic norm.
-Guide: PROOFS.md:474–475. The proof uses only the supplied Hilbert laws and the square
+The proof uses only the supplied Hilbert laws and the square
 root of -1 supplied by D; it needs no local norm-index or Gaussian comparison theorem. -/
 theorem quadratic_hilbert_binary_norm_eq_one (D : FieldData F) (H : HilbertData F)
     (v : FinPlace F) (a n : (v.adicCompletion F)ˣ) (x y : v.adicCompletion F)
@@ -265,7 +265,7 @@ private theorem quadratic_hilbert_sign (D : FieldData F) (H : HilbertData F)
 /-- The quadratic Hilbert comparison follows from the Gaussian identities and
 nondegeneracy of the actual Gaussian defect. All Gaussian inputs are explicit hypotheses,
 so this theorem isolates the analytic step rather than assuming a new index law.
-Guide: PROOFS.md:474–475; uses binary norm constancy and the index-two norm subgroup. -/
+Uses binary norm constancy and the index-two norm subgroup. -/
 theorem quadratic_defect_eq_hilbert_of_nondegenerate (D : FieldData F) (H : HilbertData F)
     (v : FinPlace F) (w : (v.adicCompletion F)ˣ → ℂˣ)
     (hone : w 1 = 1)
@@ -338,7 +338,7 @@ theorem quadratic_defect_eq_hilbert_of_nondegenerate (D : FieldData F) (H : Hilb
     exact div_eq_iff_eq_mul.mp heq
 
 /-- Identify the Gaussian multiplicative defect with the quadratic Hilbert symbol.
-Guide: PROOFS.md:474–475. Uses: local_index_binary; local_index_sign; local_index_square; H.steinberg; H.nondeg; H.tame; H.product_formula. -/
+Uses: local_index_binary; local_index_sign; local_index_square; H.steinberg; H.nondeg; H.tame; H.product_formula. -/
 theorem local_index_hilbert_defect (D : FieldData F) (A : AddCharData F) (H : HilbertData F) (W : LocalGaussianData A)
     (v : FinPlace F) (a b : (v.adicCompletion F)ˣ) :
     W.index v a * W.index v b =

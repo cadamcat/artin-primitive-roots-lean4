@@ -987,7 +987,6 @@ private theorem thetaN_torus_cont {P : CoverPackage D S H A} {N : ThetaNormaliza
   exact hGcont.continuousAt.congr hGeq
 
 /-- Export the constant-term invariances, torus continuity and T7 radiality for the same normalized constant term.
-Guide: sol-thin-thglobal/PROOFS.md:1200–1210.
 Uses thetaFamilyBaseN, theta_constantTerm, intertwineC_spherical and left-translation commutation with thetaFamilyDeriv. -/
 theorem thetaN_fields {P : CoverPackage D S H A}
     (hRP : HasRestrictedProductTopology P) {N : ThetaNormalizationInput P}

@@ -151,7 +151,7 @@ private lemma bridge_isGen_unit (S : SData F CE condη) (e : S.US) :
   simpa using (FractionalIdeal.count_one F v).symm
 
 /-- Norm positivity and multiplicative transport, independent of balanced generator choices.
-Guide: sol-thin-a2rp/PROOFS.md:20–31. Uses absS_diag_eq_norm_ofFieldData for US_norm. -/
+Uses absS_diag_eq_norm_ofFieldData for US_norm. -/
 theorem a2_bridge_NORM (D : FieldData F) (S : SData F CE condη) :
     (∀ I : S.ExtIdeal, 0 < idealNorm I.1 ∧ 1 ≤ idealNorm I.1) ∧
     (∀ x y : S.FS, S.absS (x * y) = S.absS x * S.absS y) ∧
@@ -189,7 +189,7 @@ theorem a2_bridge_NORM (D : FieldData F) (S : SData F CE condη) :
     simpa [bridge_absSUnits] using h
 
 /-- Balanced-generator norm, with only the inputs needed for that generator.
-Guide: sol-thin-a2rp/PROOFS.md:20–31. Uses absS_diag_eq_norm_ofFieldData and bc.gen_spec. -/
+Uses absS_diag_eq_norm_ofFieldData and bc.gen_spec. -/
 theorem a2_bridge_NORM_gen (D : FieldData F) (S : SData F CE condη)
     (H : HilbertData F) (Bd : BData S H) (bc : BalancedChoices D S H Bd) (I : S.ExtIdeal) :
     S.absS (S.diagU (bc.gen I) : S.FS) = idealNorm I.1 := by

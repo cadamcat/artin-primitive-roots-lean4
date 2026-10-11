@@ -61,7 +61,6 @@ private theorem conductor_log_coeff_rearrange
 
 /-- Assemble the exact nonzero S-piece partition and local groups, absorb the
 logarithms, and split off the bottom ideal using its quadratic family count.
-Guide: sol-thin-a2zf/PROOFS.md:733–751.
 Uses ideal_S_exterior_split_count, sComponent_sign_partition,
 conductor_exterior_sieve_bound, conductor_family_card_bound, conductor_log_power_absorb.
 Consumer: the exact frozen lem_conductor_sieve; no bottom multiplicativity is used. -/

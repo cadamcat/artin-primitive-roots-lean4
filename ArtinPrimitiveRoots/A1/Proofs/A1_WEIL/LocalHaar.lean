@@ -18,7 +18,7 @@ local instance measurableLocalHaar (v : FinPlace F) : MeasurableSpace (v.adicCom
 local instance borelLocalHaar (v : FinPlace F) : BorelSpace (v.adicCompletion F) := ⟨rfl⟩
 
 /-- Choose a nonzero additive Haar measure on a finite completion.
-Guide: PROOFS.md:464–466. Uses: built CFT Idele.LocallyCompact; Mathlib Haar existence. -/
+Uses: built CFT Idele.LocallyCompact; Mathlib Haar existence. -/
 theorem local_haar_exists (v : FinPlace F) : ∃ μ : Measure (v.adicCompletion F), Measure.IsAddHaarMeasure μ := by
   have : LocallyCompactSpace (v.adicCompletion F) := inferInstance
   exact ⟨Measure.addHaar, inferInstance⟩

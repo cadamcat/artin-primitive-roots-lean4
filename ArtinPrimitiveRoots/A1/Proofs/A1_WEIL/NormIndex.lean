@@ -8,7 +8,7 @@ noncomputable section
 namespace ArtinPrimitiveRoots.Proofs.a1_weil_sol
 
 /-- The local norm-subgroup index is the degree of a finite abelian Galois extension.
-Guide: PROOFS.md:474–475, norm-coset route. Uses the already built actual Artin map;
+Norm-coset route. Uses the already built actual Artin map;
 the unavailable MathlibInterface umbrella module is not imported. -/
 theorem local_norm_index_eq_finrank (K L : Type) [Field K] [Field L] [Algebra K L]
     [ValuativeRel K] [TopologicalSpace K] [IsNonarchimedeanLocalField K]

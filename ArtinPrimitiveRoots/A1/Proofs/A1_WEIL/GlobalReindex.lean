@@ -40,7 +40,7 @@ private theorem wi_mem_primeIndex_iff (v : FinPlace F) (p : Nat.Primes) :
     simpa using hpInt
 
 /-- Regroup a finite-support global product by its unique rational residue prime.
-Guide: PROOFS.md:480–481. Uses: finite residue fields; rational-prime fibers; finprod partition identities. -/
+Uses: finite residue fields; rational-prime fibers; finprod partition identities. -/
 theorem global_index_prime_fibers (A : AddCharData F) (W : LocalGaussianData A) (a : Fˣ)
     (ha : (Function.mulSupport fun v => W.index v (toLoc v a)).Finite) :
     (∏ᶠ v : FinPlace F, ((W.index v (toLoc v a) : ℂˣ) : ℂ)) =

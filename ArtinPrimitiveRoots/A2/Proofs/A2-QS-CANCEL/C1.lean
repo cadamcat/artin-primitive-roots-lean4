@@ -5,7 +5,7 @@ import ArtinPrimitiveRoots.Proofs.qs_c_p.C1Helpers
 /-!
 # A2-QS-CANCEL, part C1: the main-term difference is a boundary sum
 
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:443-458` (lead's form).  With `I_W = Mellin(W∘sq)(1)
+With `I_W = Mellin(W∘sq)(1)
 = Mellin((T W)∘sq)(1)` (`qs_half_mellin_P0`) and `φ(𝔮f)/N(𝔮f) = (φ(𝔮)/N𝔮)(φ(f)/N f)`,
 `dual main − orig main = ρ_K I_W √M (φ(f)/N f) · D_κ(ψ)` with
 `D_κ = A_κ · S_𝔮 − (φ(𝔮)/N𝔮) A_{κ,𝔮}`, `A_κ = Σ_{a₀ sqf, N a₀ ≤ κ} ψ(a₀)/√N a₀`,

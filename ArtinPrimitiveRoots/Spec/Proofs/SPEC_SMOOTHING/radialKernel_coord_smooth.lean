@@ -9,7 +9,7 @@ namespace ArtinPrimitiveRoots.A1.Spec
 variable {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
 
 /-- Joint smoothness of the product radial kernel in positive coordinate charts.
-Guide: `sol-thin-spec/PROOFS.md:402`. Uses frozen `G1_h3_basics`, `G6_ppi` and the
+Uses frozen `G1_h3_basics`, `G6_ppi` and the
 finite product rule; supplies `radialKernel_compact_control`. -/
 theorem radialKernel_coord_smooth (k₀ : ℝ → ℝ) (hkSmooth : ContDiff ℝ ∞ k₀) :
     ContDiffOn ℝ ∞

@@ -355,7 +355,6 @@ private theorem continuedEis_representation_series
 /-- Extend the finite component cusp sums and their residues to adelic functions. The same
 point representation transports both sums and the original series, and the reconstructed
 functions have rational automorphy, finite-level invariance and infinite-compact invariance.
-Guide: `runs/lanes/sol-thin-thglobal/PROOFS.md:797–808`.
 Uses `continuedEis_component_unique`, `continuedEis_component_representatives`,
 frozen `eisenstein_automorphic`, `scalarOf_q`,
 and the component data supplied by `continuedEis_uniform_level_components`.

@@ -95,7 +95,6 @@ private theorem jacquetPartialFactor
 /-- A multilinear form on local section spaces, psi-equivariant separately in every
 coordinate, factors through the local Jacquet maps. Apply whittaker_twoCell to each partial
 functional and descend successively through each Jacquet kernel; complements extend to V.
-Guide: sol-thin-thglobal/PROOFS.md:1007–1019.
 Uses: whittaker_twoCell, jacquet_linear, whittaker_extend (if extending partial functionals).
 Feeds: thetaWhit_multilinear after thetaWhit_section_multilinear. -/
 theorem thetaWhit_jacquet_factorization

@@ -356,7 +356,7 @@ open ArtinPrimitiveRoots A1 A1.Theta
 variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
-/-- All support-sensitive symbol bridges. Guide: sol-thin-a2rp/PROOFS.md:32–41.
+/-- All support-sensitive symbol bridges.
 Uses SymbolBridge, actual localChi and Theta.Shared.localChi_basic. Owned by LEAD. -/
 theorem a2_bridge_SYMBOL (D : FieldData F) (S : SData F CE condη) : SymbolBridge D S := by
   refine {

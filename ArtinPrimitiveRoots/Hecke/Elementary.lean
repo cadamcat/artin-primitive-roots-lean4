@@ -6,7 +6,7 @@ import Mathlib.Topology.Algebra.InfiniteSum.Order
 /-!
 # Hecke L-function package: elementary statements (Re s > 1)
 
-Frozen interface (§2 of the design, and (D3)). Design: `research/design/A2-HeckeAPI.lean` and `A2-DESIGN.md` (Opus A2 sub-agent, 2026-10-07).
+Frozen interface (§2 of the design, and (D3)).
 -/
 
 set_option autoImplicit false

@@ -306,7 +306,7 @@ private theorem localHaarFactor_eq_nnnorm (v : FinPlace F) (y : (v.adicCompletio
     _ = ‖(y : K)‖₊ := by rw [hdecomp]
 
 /-- The Jacobian of multiplication is the normalized local absolute value.
-Guide: PROOFS.md:466–470. Uses: local_absolute_value; Haar uniqueness; residue cardinality. -/
+Uses: local_absolute_value; Haar uniqueness; residue cardinality. -/
 theorem local_haar_scale (v : FinPlace F) (μ : Measure (v.adicCompletion F))
     (hμ : Measure.IsAddHaarMeasure μ) (b : (v.adicCompletion F)ˣ) :
     Measure.map (fun x => (b : v.adicCompletion F) * x) μ =

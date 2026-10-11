@@ -34,7 +34,7 @@ private theorem conductorExtIdeal_norm_pos
   exact Nat.pos_of_ne_zero hn
 
 /-- Split the finite exterior cutoff into disjoint dyads and apply
-Cauchy–Schwarz, paying one logarithm. Guide: sol-thin-a2zf/PROOFS.md:733–737.
+Cauchy–Schwarz, paying one logarithm.
 Uses conductor_exterior_dyad_bound; feeds conductor_sieve_assemble. -/
 theorem conductor_exterior_sieve_bound (S : A1.SData F CE condη)
     (C₀ : ℝ) (hC₀ : 0 < C₀) :

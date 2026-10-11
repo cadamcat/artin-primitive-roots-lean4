@@ -10,8 +10,7 @@ open ArtinPrimitiveRoots.TypeII
 noncomputable section
 
 set_option maxHeartbeats 0 in
-/-- Eventual elementary scales and uniform atom/mass bounds. Guide:
-`runs/lanes/sol-thin-pd5/PROOFS.md:29–91`. Uses proved pd5 Atoms and HistoryPartition;
+/-- Eventual elementary scales and uniform atom/mass bounds. Uses proved pd5 Atoms and HistoryPartition;
 feeds positive rows, fixed-system bounds, boundary estimates and both frozen rank declarations. -/
 theorem pd5_scale_facts (K : ℕ) (F : PDFix K) (hF : F.Valid) :
     ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ S : PDScale, x₀ ≤ S.x →

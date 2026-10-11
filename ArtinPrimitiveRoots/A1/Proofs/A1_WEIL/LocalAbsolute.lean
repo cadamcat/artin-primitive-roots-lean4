@@ -20,7 +20,7 @@ private lemma absFin_eq_norm (v : FinPlace F) (x : v.adicCompletion F) :
   exact (FinitePlace.norm_def v x).symm
 
 /-- Basic positivity and multiplication for the frozen normalized finite absolute value.
-Guide: PROOFS.md:464–469. Uses: absFin; Ideal.absNorm_pos; WithZeroMulInt.toNNReal. -/
+Uses: absFin; Ideal.absNorm_pos; WithZeroMulInt.toNNReal. -/
 theorem local_absolute_value (v : FinPlace F) :
     absFin v 1 = 1 ∧
     (∀ a : (v.adicCompletion F)ˣ, 0 < absFin v (a : v.adicCompletion F)) ∧

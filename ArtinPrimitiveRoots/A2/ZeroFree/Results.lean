@@ -129,7 +129,7 @@ structure FrequencyData (S : ArtinPrimitiveRoots.A1.SData F CE condη)
         (kummer u).primeValue v = ArtinPrimitiveRoots.A1.chi D v (repr u)
   /-- Masked exterior Kummer prime values, including positive valuations. The character value is
   zero when the representative is divisible by the prime. Added for `prop:euler-product`
-  (05:407–433), following `sol-thin-a2rp/PROOFS.md` 632–640. -/
+  (05:407–433). -/
   kummer_primeValue_masked : ∀ u (v : ArtinPrimitiveRoots.A1.FinPlace F), v ∉ S.Sf →
     (kummer u).primeValue v =
       if ArtinPrimitiveRoots.A1.residue v (repr u) = 0 then 0

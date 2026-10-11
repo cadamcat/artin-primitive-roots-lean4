@@ -11,7 +11,6 @@ variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- Finite abelian duality bounds any set of residue multiplicative characters
 by the unit-group order and hence by the ring order. Works for the unit ring.
-Guide: sol-thin-a2zf/PROOFS.md:712–719,742–747.
 Uses MulChar/Duality; feeds the bottom-ideal family count. -/
 theorem conductor_residue_character_count {R : Type*} [CommRing R] [Fintype R]
     (𝓧 : Finset (MulChar R ℂ)) :

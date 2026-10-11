@@ -21,7 +21,7 @@ private lemma hkResidueRing_card (m : RayClassModulus K) :
   rw [h1, h2, h3, h4]
 
 /-- The residue cardinal is the norm, so the generic finite-ring Gauss norm is exactly sqrt q.
-Guide: sol-thin-hk2/PROOFS.md:1307–1320. Uses hk_primitive_residue_character,
+Uses hk_primitive_residue_character,
 hk_primitive_trace_datum and OAI.SevenEighths.FiniteFourier.primitive_gaussSum_norm. -/
 theorem hk_primitive_trace_gauss_sum [IsTotallyComplex K] {m : RayClassModulus K}
     {ψ : RayClassGroup m →* ℂˣ} (χ : HKResidueCharacter ψ) (T : HKTraceDatum m) :

@@ -11,7 +11,7 @@ noncomputable section
 
 /-- Sum the fixed-path majorant using root_budget and absorb the exponential tail at
 B=ceil(L squared). Constants are uniform in the archimedean root.
-Guide runs/lanes/sol-thin-pdmem/PROOFS.md:504–523. Uses
+Uses
 pd_truncation_choice_majorant, pd_doubled_lifespan_bound and root_budget; feeds the frozen
 truncation_adjoint. Choose C_A=1 after increasing the threshold. -/
 theorem pd_truncation_tail_absorb (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :

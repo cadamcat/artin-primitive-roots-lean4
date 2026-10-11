@@ -8,7 +8,7 @@ import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-NARROW».NQ
 Status: design draft, compiled against Mathlib `d13f23b` only; the theorem is `sorry`.
 
 Consumer: A2 `lem:reflection-quadratic-sieve` (04-reflection.tex:941-1025), which feeds
-`rf:retained-mass` and hence `prop:reflection`.  Coordinator decision (2026-10-07): only this
+`rf:retained-mass` and hence `prop:reflection`.  Only this
 narrow statement is formalized, not Goldmakher–Louvel's general family theorem.
 
 Mathematical content.  `K` a number field containing a primitive 12th root of unity, `S` a finite
@@ -73,7 +73,7 @@ def IsExteriorGenerator (S T : Finset (HeightOneSpectrum (𝓞 K))) (c : 𝓞 K)
     ((c ∈ v.asIdeal ↔ v ∈ T) ∧ c ∉ v.asIdeal ^ 2)
 
 /-- **lem:reflection-quadratic-sieve** (04-reflection.tex:941-1025).  This is the narrow
-quadratic large sieve in the any-integral-representative form (A2-DESIGN.md §4).  Quantifier
+quadratic large sieve in the any-integral-representative form.  Quantifier
 order: `K, S` fixed; for each `ε > 0` one constant `C`
 serves all lengths, all row and column families and all choices of representatives `gen`. -/
 theorem narrow_quadratic_large_sieve

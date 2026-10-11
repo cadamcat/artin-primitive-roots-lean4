@@ -13,7 +13,7 @@ variable {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
 
 /-- Every cusp stabilizer has a unit diagonal and a uniformly bounded denominator,
 and acts by the affine horizontal map and the squared-norm height map.
-Guide: sol-thin-spec/PROOFS.md:134–142 and 205. Uses G1_h3_basics and
+Uses G1_h3_basics and
 G2_x_action, with no FreeAction assumption; feeds siegel_high_height_overlap_finite.
 This exposes only the free-independent form/action components needed from R2. -/
 theorem cusp_stabilizer_form_without_freeness

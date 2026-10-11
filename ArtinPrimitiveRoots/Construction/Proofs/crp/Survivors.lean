@@ -1,7 +1,7 @@
 import ArtinPrimitiveRoots.Construction.Proofs.crp.Block
 import ArtinPrimitiveRoots.Ext.TypeIIInputs
 
-/-! The per-group-integer survivor bound of `con_rough_pairs` (PROOFS.md §13, steps 5–7): an
+/-! The per-group-integer survivor bound of `con_rough_pairs`: an
 absolute constant `Csv` with `#survivors ≤ Csv·(x/r)·V(W)²/log x`, uniformly in the box, in
 `c ∈ {2,4}` and in the group integer `r ≤ x^0.11`. -/
 
@@ -58,7 +58,7 @@ theorem crp_eventually_scales (y₀ : ℝ) : ∀ᶠ x : ℝ in atTop,
     _ ≤ Real.exp (Real.log x * (1 / 500)) := Real.exp_le_exp.mpr hexp
     _ = Real.rpow x (1 / 500 : ℝ) := (Real.rpow_def_of_pos hxpos _).symm
 
-/-- Steps 5–7 of PROOFS.md §13 for one group integer `r`. -/
+/-- The survivor bound for one group integer `r`. -/
 theorem pairSurvivors_card_le :
     ∃ Csv : ℝ, 0 < Csv ∧ ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x →
       ∀ H₁ H₂ : ℝ, H₁ * H₂ ≤ 2 * x →

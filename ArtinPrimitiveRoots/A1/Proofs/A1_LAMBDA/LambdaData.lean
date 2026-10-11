@@ -11,7 +11,7 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- A1-LAMBDA IMPL: Combine lambda_pullback_data and local_cubic_gamma_transport for every prime generator.
-Guide: sol-thin-a1/PROOFS.md:428-439. Uses: LambdaPullback, LocalGammaTransport. -/
+Uses: LambdaPullback, LocalGammaTransport. -/
 theorem lambda_data_below (D : FieldData F) (S : SData F CE condη)
     (A : AddCharData F) :
     ∃ Λ : LambdaChar F, unitary Λ ∧ angularType D Λ ∧

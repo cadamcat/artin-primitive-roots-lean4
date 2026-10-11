@@ -44,7 +44,7 @@ private lemma scalar_denominator_bound_unit (D : ℕ) {a : F}
 
 /-- Choose one balanced nonzero scalar per unit orbit in the denominator lattice.
 The covering witness rescales by a unit; its torsion ambiguity is harmless.
-Guide: `sol-thin-spec/PROOFS.md:352`. Uses `R4_unit_balance`; feeds
+Uses `R4_unit_balance`; feeds
 `balanced_denominator_rows_bound`. -/
 theorem scalar_unit_orbit_section (D : ℕ) (hD : 0 < D) :
     ∃ (B : ℝ) (S : Set F), 0 ≤ B ∧

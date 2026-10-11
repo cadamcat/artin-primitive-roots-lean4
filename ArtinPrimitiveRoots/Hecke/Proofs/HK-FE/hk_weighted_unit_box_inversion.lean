@@ -11,7 +11,7 @@ namespace ArtinPrimitiveRoots.Hecke
 variable {K : Type*} [Field K] [NumberField K]
 
 /-- Integrate the weighted Poisson equation over the full unit box and retile the dual log
-variables. Guide: sol-thin-hk2/PROOFS.md:1409–1439. Uses hk_weighted_gaussian_poisson,
+variables. Uses hk_weighted_gaussian_poisson,
 the Gaussian majorants of H1 and HeckeTheta's dualShift / fundamental-domain integral. -/
 theorem hk_weighted_unit_box_inversion [IsTotallyComplex K] {m : RayClassModulus K}
     (ψ : RayClassGroup m →* ℂˣ) (χ : HKResidueCharacter ψ) (T : HKTraceDatum m)

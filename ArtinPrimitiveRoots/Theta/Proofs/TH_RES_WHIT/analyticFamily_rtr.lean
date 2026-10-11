@@ -19,7 +19,7 @@ variable {P : CoverPackage D S H A} {G : GlobalDatum P}
 
 /-- Translate one already inserted local section of an analytic family. The support and
 exterior sections are fixed; conjugating a common small level gives a common translated level.
-Guide: sol-thin-thglobal/PROOFS.md:923–934 (translation step).
+Translation step.
 Uses: IsSection.rtr, intertwine_rtr, the family's J_analytic and level fields.
 Feeds: theta_lambda_whittaker. -/
 theorem analyticFamily_rtr (Fam : AnalyticFamily P G μ) (v0 : FinPlace F)

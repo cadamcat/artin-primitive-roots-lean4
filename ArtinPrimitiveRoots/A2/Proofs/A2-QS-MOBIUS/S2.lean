@@ -4,7 +4,7 @@ import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».P2
 /-!
 # A2-QS-MOBIUS, part S2: the full error tuple of one residual pair
 
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:419-432` (lead's exact form).  Insert
+Insert
 `qs_coprime_square_pieces_P2` into both low kernels of `qs_squarefree_removal_S1`.  In the
 guide's names: `E₁ = dual highDiv`, `E₂ = dual res`, `E₃ = dual trans`, `E₄ = orig highDiv`,
 `E₀ = orig res`, `E₅ = orig trans`; the main terms are kept as the signed difference

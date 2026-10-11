@@ -189,7 +189,7 @@ private theorem dyadic_odd_phase_norm (r : ℕ) :
   simp [Complex.norm_exp]
 
 /-- All explicit rational phases are nonzero units.
-Guide: PROOFS.md:482–485. Uses: padicValRat arithmetic; jacobiSym abs bound; dyadic residues. -/
+Uses: padicValRat arithmetic; jacobiSym abs bound; dyadic residues. -/
 theorem rational_prime_phase_norm (p : Nat.Primes) (a : ℚˣ) :
     ‖rationalPrimePhase p a‖ = 1 := by
   letI : Fact p.1.Prime := ⟨p.2⟩

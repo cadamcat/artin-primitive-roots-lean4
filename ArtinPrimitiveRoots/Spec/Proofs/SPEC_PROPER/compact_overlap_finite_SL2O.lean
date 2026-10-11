@@ -193,7 +193,7 @@ private theorem compact_row_entry_bounds (C : Set (X F))
   · simpa [d, c, p, toInf, toSLF] using hd
 
 /-- Only finitely many integral determinant-one matrices move one compact set to meet another.
-Guide: sol-thin-spec/PROOFS.md:203. Uses G1_h3_basics, G2_x_action and
+Uses G1_h3_basics, G2_x_action and
 finite_integral_elements_with_embedding_bounds; feeds R9_proper, low-height finiteness,
 free_action_wandering_nbhd and local_finite_overlap. -/
 theorem compact_overlap_finite_SL2O (K K' : Set (X F))

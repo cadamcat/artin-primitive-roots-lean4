@@ -3,8 +3,7 @@ import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MATRIX».Defs
 /-!
 # A2-QS-MATRIX, part M0: finite matrix, energy, monotonicity, duality, adapters
 
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:305` (M0) and III.10 G3 (found:617-619) for the
-finite-subset adapter.  Generic operator facts: `OAI.FiniteSieveOperator.energy_bound`,
+Generic operator facts: `OAI.FiniteSieveOperator.energy_bound`,
 `operator_conjTranspose_norm`, `diagonal_twist_norm_le` (`O/NumberTheory/DirichletL/
 QuadraticSieve/FiniteOperator.lean:77-186`).
 -/

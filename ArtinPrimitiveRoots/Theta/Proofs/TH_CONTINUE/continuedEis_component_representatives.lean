@@ -14,7 +14,6 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
 
 /-- Every adelic point has a classical component representation at the prescribed common
 level. This isolates the geometric covering step from the analytic independence proof.
-Guide: `runs/lanes/sol-thin-thglobal/PROOFS.md:797–800`; component input: lines 786–796.
 Uses `ContinuedEisComponents.detect` from frozen `exists_classical_components` and
 archimedean Iwasawa coordinates. Consumed by component reconstruction and torus charts. -/
 theorem continuedEis_component_representatives {P : CoverPackage D S H A} {G : GlobalDatum P}

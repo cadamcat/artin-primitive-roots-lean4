@@ -46,7 +46,7 @@ private theorem conductorPrime_isExterior
   exact hv (hvw.symm ▸ hw)
 
 /-- A common finite/infinite component and residue realization determine the
-full idelic character. Guide: sol-thin-a2zf/PROOFS.md:680–693.
+full idelic character.
 Uses HK-DICT-RAY prime-value uniqueness off the finite conductor support.
 This is the injectivity clause needed to sum over a subset of residue characters. -/
 theorem primitive_conductor_residue_determines (S : A1.SData F CE condη)

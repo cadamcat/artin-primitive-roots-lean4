@@ -12,7 +12,7 @@ namespace ArtinPrimitiveRoots.A1.Spec
 variable {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
 
 /-- The triangular term has the absolute FIELD norm as its leading coefficient,
-even when its diagonal entry is not integral. Guide: `sol-thin-spec/PROOFS.md:350`.
+even when its diagonal entry is not integral.
 Uses `G2_x_action`; feeds the third conjunct of `E4_eis_siegel`. -/
 theorem triangular_transition_term (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (σ σ' : SL(2,F)) (q : CuspCosets F Γ σ)

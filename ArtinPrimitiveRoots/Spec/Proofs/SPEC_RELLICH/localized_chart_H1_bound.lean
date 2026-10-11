@@ -668,7 +668,7 @@ private theorem rellichLocalized_component_fderiv
   ring
 
 /-- Uniform H¹ estimates for a calibrated real/imaginary cutoff test localization.
-Guide: runs/lanes/sol-thin-spec/PROOFS.md:318. Uses the local-energy bound from
+Uses the local-energy bound from
 quotient_to_chart_finite_overlap, compact bounds on heights/density/cutoff derivatives,
 and the mass and gradient representatives of localized_chart_H1_membership. -/
 theorem localized_chart_H1_bound

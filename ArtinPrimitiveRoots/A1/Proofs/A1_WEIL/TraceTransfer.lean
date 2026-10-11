@@ -25,7 +25,7 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- Transfer actual normalized local Gaussians to the rational diagonal trace form.
-Guide: PROOFS.md:480–485. Uses: completion tensor/trace decomposition; additive-character trace identification; rational_odd_gauss_sum; rational_dyadic_gauss_sums. -/
+Uses: completion tensor/trace decomposition; additive-character trace identification; rational_odd_gauss_sum; rational_dyadic_gauss_sums. -/
 theorem quadratic_trace_transfer (D : FieldData F) (A : AddCharData F)
     (W : LocalGaussianData A) (a : Fˣ) (T : QuadraticTraceDiagonal a)
     (T1 : QuadraticTraceDiagonal (1 : Fˣ)) (p : Nat.Primes) :

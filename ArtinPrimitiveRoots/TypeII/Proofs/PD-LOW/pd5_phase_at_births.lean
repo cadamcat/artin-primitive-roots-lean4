@@ -1050,7 +1050,7 @@ private theorem pd5_low_a_logInner_initialLog {K : ℕ} (F : PDFix K) (S : PDSca
     _ = ∑' s : MemPoint S.x K, stateWeight s := hsumStates.symm
 
 /-- Attach bounded address phases at their unique births, eliminating the log exactly.
-Guide `runs/lanes/sol-thin-pd5/PROOFS.md:612–656`; uses pd5 prefix uniqueness and finite
+Uses pd5 prefix uniqueness and finite
 cutoff expansions; feeds low-rank norm iteration. -/
 theorem pd5_phase_at_births {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
     (B : ℕ) (U : Finset (BirthAddress K)) (hU : U ⊆ birthAddresses S.x K B)
@@ -1097,7 +1097,7 @@ theorem pd5_phase_at_births {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w 
       ring
 
 /-- Pair phases regroup into the product of their per-address coefficients, including absent
-performed flags. Guide `runs/lanes/sol-thin-pd5/PROOFS.md:570–611`; uses pd5b_pairAddressCoeff;
+performed flags. Uses pd5b_pairAddressCoeff;
 feeds pd5_phase_at_births and low-rank norm iteration. -/
 theorem pd5_pairPhase_eq_birthPhase {K T : ℕ} [NeZero T]
     (A : Finset (BirthAddress K)) (C : Finset (Finset (BirthAddress K)))

@@ -105,7 +105,7 @@ private theorem lattice_annihilator_compact (A : AddCharData F) (v : FinPlace F)
 /-- A concrete small compact open subgroup has trivial quadratic phase and compact
 bilinear annihilator. A valuation bound makes the quadratic error integral; character
 nontriviality bounds the annihilator, and multiplication by 2*a transports compactness.
-Guide: PROOFS.md:480–485; supplies the hypotheses of compact-subgroup averaging. -/
+Supplies the hypotheses of compact-subgroup averaging. -/
 theorem local_quadratic_phase_small_subgroup (A : AddCharData F)
     (v : FinPlace F) (hregular : LocalCharacterRegular A v)
     (a : (v.adicCompletion F)ˣ) :

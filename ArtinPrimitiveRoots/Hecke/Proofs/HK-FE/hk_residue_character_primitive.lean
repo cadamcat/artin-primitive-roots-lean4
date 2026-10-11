@@ -405,8 +405,8 @@ private theorem hk_isCoprimeTo_of_one_modulus {m : RayClassModulus K} (a : 𝓞 
   exact (isCoprimeTo_iff_sup m (Ideal.span {a})).mpr
     ⟨by simpa using ha0, hcomax⟩
 
-/-- Exact ray primitivity forces ideal primitivity of the residue character. Guide:
-sol-thin-hk2/PROOFS.md:1231–1260. Uses hk_residue_character_lift, the smaller finite-modulus
+/-- Exact ray primitivity forces ideal primitivity of the residue character.
+Uses hk_residue_character_lift, the smaller finite-modulus
 construction and the fractional-principal congruence bridge from HK-DICT-RAY. -/
 theorem hk_residue_character_primitive [IsTotallyComplex K] {m : RayClassModulus K}
     (ψ : RayClassGroup m →* ℂˣ) (hp : HKPrimitive ψ)

@@ -3,7 +3,7 @@ import ArtinPrimitiveRoots.Hecke.RayClassCopy
 /-!
 # Hecke L-function package: definitions
 
-Partial Hecke L-series of ray class characters. Design: `research/design/A2-HeckeAPI.lean` and `A2-DESIGN.md` (Opus A2 sub-agent, 2026-10-07).
+Partial Hecke L-series of ray class characters.
 -/
 
 set_option autoImplicit false

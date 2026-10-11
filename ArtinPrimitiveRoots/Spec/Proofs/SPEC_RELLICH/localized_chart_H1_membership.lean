@@ -156,7 +156,7 @@ private noncomputable def rellichC1cGraphH1OnLinear
     (fun f => rellichC1cGraph_mem_h1On (F := F) K hK (A f) (hA f))
 
 /-- The cutoff test has supported real and imaginary H¹ representatives after zero extension.
-Guide: runs/lanes/sol-thin-spec/PROOFS.md:318-319. Uses G1_h3_basics, G2_x_action and the
+Uses G1_h3_basics, G2_x_action and the
 T2 test characterization; the compact cutoff vanishes near the positive-chart boundary.
 Build C1c representatives and their core maps into h1On, including gradient calibration. -/
 theorem localized_chart_H1_membership

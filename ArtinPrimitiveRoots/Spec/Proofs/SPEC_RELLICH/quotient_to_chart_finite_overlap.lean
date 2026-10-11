@@ -130,7 +130,7 @@ private theorem rellich_l2Lift_invariant
         u ((δ : SL(2,𝓞 F)) • z) else 0)
 
 /-- Local mass and gradient energy are controlled by calibrated quotient energy.
-Guide: runs/lanes/sol-thin-spec/PROOFS.md:319. Uses the compact-overlap conjunct
+Uses the compact-overlap conjunct
 of T1_l2 (passed as hOverlap), G3_volume, G4_energy and the T2 test characterization.
 No freeness or finiteness assertion about translates meeting an unbounded D is used. -/
 theorem quotient_to_chart_finite_overlap

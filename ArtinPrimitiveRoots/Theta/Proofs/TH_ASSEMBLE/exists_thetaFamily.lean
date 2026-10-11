@@ -11,7 +11,7 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
   {H : HilbertData F} {A : AddCharData F}
 
 /-- Assemble every field of ThetaFamily from the actual normalized common-section functions.
-Guide: sol-thin-thglobal/PROOFS.md:1163–1224. Uses all TH_FAMILY_FIELDS exports and
+Uses all TH_FAMILY_FIELDS exports and
 ThetaFamilyUpstream; no further analytic or topological premise is left for the consumer. -/
 def thetaFamily_from_normalized_sections {P : CoverPackage D S H A}
     (hRP : HasRestrictedProductTopology P) (N : ThetaNormalizationInput P)

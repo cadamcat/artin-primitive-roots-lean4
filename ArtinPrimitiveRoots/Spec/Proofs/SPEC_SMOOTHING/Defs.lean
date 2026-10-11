@@ -16,7 +16,7 @@ variable (F : Type) [Field F] [NumberField F]
 
 /-- Control of all coordinate derivatives on one common neighborhood and compact integration
 set. The bounds are operator norms, so differentiation can be iterated before evaluating a
-multilinear derivative on directions. Guide: `sol-thin-spec/PROOFS.md:402–405`.
+multilinear derivative on directions.
 Used by `radialKernel_compact_control` and `param_deriv_integral_formula`. -/
 structure SmoothingKernelControl (k₀ : ℝ → ℝ)
     (U : Set (Coord F)) (W : Set (X F)) : Prop where

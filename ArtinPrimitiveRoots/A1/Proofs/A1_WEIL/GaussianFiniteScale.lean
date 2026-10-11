@@ -38,7 +38,7 @@ private theorem localBallInt_preimage_mul (v : FinPlace F)
 
 /-- Scalar change of variables for each actual finite-ball Gaussian integral.
 The measure Jacobian is an explicit hypothesis, supplied later by local_haar_scale.
-Guide: PROOFS.md:468–470; the formula includes negative integer truncation radii and
+The formula includes negative integer truncation radii and
 uses a measurable equivalence, so it needs no whole-field integrability hypothesis. -/
 theorem quadratic_integral_square_scale_int (A : AddCharData F) (v : FinPlace F)
     (μ : Measure (v.adicCompletion F)) (a b : (v.adicCompletion F)ˣ)

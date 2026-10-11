@@ -4,10 +4,7 @@ import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MATRIX».M0
 /-!
 # A2-QS-CANCEL, part C0: local signed divisor-pair identity
 
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:435-442`.  Local factor
-`(1 + x/√q)(1 − x/√q) = 1 − 1/q` for `x = ψ(P) ∈ {±1}`; compiled algebra
-`squarefree_mobius_pair`, `quadratic_local_factor` in
-`runs/lanes/sol-thin-found/wt/ArtinPrimitiveRoots/Review/sol-thin-found/SieveAlgebra.lean`.
+Local factor `(1 + x/√q)(1 − x/√q) = 1 − 1/q` for `x = ψ(P) ∈ {±1}`.
 -/
 
 set_option autoImplicit false

@@ -14,7 +14,7 @@ namespace ArtinPrimitiveRoots.Proofs.a1_weil_sol
 /-- An additive character integrates to the subgroup mass when it is trivial there,
 and to zero otherwise. Translation invariance applies to the subgroup indicator,
 so the identity needs no global integrability assumption on the character.
-Guide: PROOFS.md:466–475; supplies compact-ball orthogonality for the Fourier support test. -/
+Supplies compact-ball orthogonality for the Fourier support test. -/
 theorem integral_addChar_addSubgroup {G : Type*} [AddCommGroup G]
     [MeasurableSpace G] [MeasurableAdd G] (μ : Measure G)
     [Measure.IsAddLeftInvariant μ] (U : AddSubgroup G)

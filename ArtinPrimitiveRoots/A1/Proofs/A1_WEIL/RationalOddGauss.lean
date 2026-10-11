@@ -16,7 +16,7 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- The actual odd-prime quadratic Gauss phase, including its sign.
-Guide: PROOFS.md:482–485. Uses: Mathlib quadratic Gauss square/frobenius; standard finite additive character. -/
+Uses: Mathlib quadratic Gauss square/frobenius; standard finite additive character. -/
 theorem rational_odd_gauss_sum (p : ℕ) [Fact p.Prime] (hp : p ≠ 2) (u : (ZMod p)ˣ) :
     (∑ x : ZMod p, ZMod.stdAddChar ((u : ZMod p) * x ^ 2)) =
       (quadraticChar (ZMod p) (u : ZMod p) : ℂ) *

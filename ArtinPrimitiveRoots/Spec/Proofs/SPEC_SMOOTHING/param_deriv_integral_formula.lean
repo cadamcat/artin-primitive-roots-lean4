@@ -315,7 +315,7 @@ private theorem smoothingKernelDerivInt_iterated (k₀ : ℝ → ℝ)
 
 /-- Local L1 and compact kernel control give smoothness and all multilinear
 derivative-integral identities. Only the representative on W needs to be integrable.
-Guide: `sol-thin-spec/PROOFS.md:403–405`. Uses `SmoothingKernelControl` and Mathlib's
+Uses `SmoothingKernelControl` and Mathlib's
 `hasFDerivAt_integral_of_dominated_of_fderiv_le`; supplies
 `smoothing_uniform_eval_bound`, `smoothing_smooth_representative`, S1 and generic S3 smoothing. -/
 theorem param_deriv_integral_formula (k₀ : ℝ → ℝ)

@@ -19,10 +19,9 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
 archimedean root orbits. Obtain finite local constancy from the common level, and compose
 the finite residue sums with smooth archimedean coordinate charts. Single-place right-root
 smoothness is included in the exact form required by the frozen consumer.
-Guide: `runs/lanes/sol-thin-thglobal/PROOFS.md:824–832`.
 Uses component reconstruction, common finite level and `Spec.ContinuedEisenstein.res_smooth`.
 Consumed by frozen `exists_continuedEis`; no `hRP` hypothesis.
-Amended (`runs/lanes/theta-iface-opus/AMENDMENT.md`): the first conjunct is continuity in the
+Amended: the first conjunct is continuity in the
 torus parameter of every iterated right root derivative, not only of the residue itself. -/
 theorem continuedEis_theta_cont {P : CoverPackage D S H A} {G : GlobalDatum P}
     {I : ContinuedEisInput P G} {C : ContinuedEisComponents I}

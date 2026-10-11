@@ -15,7 +15,7 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
   {H : HilbertData F} {A : AddCharData F}
 
 /-- Assemble the finite analytic cell sums, the Euler-product regularization, and the torus
-Laurent value to obtain the constant term. Guide: sol-thin-thglobal/PROOFS.md:835–848.
+Laurent value to obtain the constant term.
 Uses constantCell_finite_analytic, regularized_cprod_continuation, torusCoeff_analytic,
 regularized_residue_eval, adapted_domain_measurable_representative, eisenstein_constantTerm.
 Feeds the frozen theta_constantTerm with fourierRawM definitionally equal to its famM scalar. -/

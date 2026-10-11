@@ -494,7 +494,7 @@ def ContinuedEis.fourierData {P : CoverPackage D S H A} {G : GlobalDatum P}
   laurent_torus := C.laurent_torus
 
 /-- Euler regularization input, reusing the prior lane's partial-zeta identification.
-Guide: sol-thin-thglobal/PROOFS.md:843–845. Uses Hecke trivial continuation,
+Uses Hecke trivial continuation,
 resLSeries_eq_zetaT0, and the frozen cprod_eq_zeta_ratio. -/
 theorem fourierEuler_hyp (T0 : Finset (FinPlace F)) : FourierEulerHyp T0 := by
   let m := resModulus T0

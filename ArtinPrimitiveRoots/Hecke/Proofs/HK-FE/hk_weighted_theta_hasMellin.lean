@@ -11,7 +11,7 @@ namespace ArtinPrimitiveRoots.Hecke
 variable {K : Type*} [Field K] [NumberField K]
 
 /-- The conductor-scaled theta's Mellin transform, valid for every complex argument.
-Guide: sol-thin-hk2/PROOFS.md:1477–1537. Uses hk_weighted_theta_eq_ray_character,
+Uses hk_weighted_theta_eq_ray_character,
 H1's zero-constant strong FE pair and the positive scaling t/q of the Mellin integral. -/
 theorem hk_weighted_theta_hasMellin [IsTotallyComplex K] {m : RayClassModulus K}
     (ψ : RayClassGroup m →* ℂˣ) (hψ : ψ ≠ 1) (s : ℂ) :

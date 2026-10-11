@@ -45,7 +45,7 @@ private theorem quadratic_algebra_norm_eq (K : Type) [Field K] (a : K)
 
 /-- The nonzero binary quadratic norms form an index-two subgroup for a nonsquare
 coefficient over a characteristic-zero nonarchimedean local field.
-Guide: PROOFS.md:474–475. Uses the two-coordinate quadratic algebra and the actual
+Uses the two-coordinate quadratic algebra and the actual
 local Artin map through `local_norm_index_eq_finrank`. -/
 theorem quadratic_binary_norm_subgroup_index_two (K : Type) [Field K] [CharZero K]
     [ValuativeRel K] [TopologicalSpace K] [IsNonarchimedeanLocalField K]

@@ -20,7 +20,7 @@ local instance supportBorel (v : FinPlace F) : BorelSpace (v.adicCompletion F) :
 /-- The frequency annihilator separates the two quadratic supports for a nonsquare.
 The unscaled preimage has positive finite Haar mass and is eventually contained
 in every spatial cutoff; the scaled preimage is empty at every cutoff.
-Guide: PROOFS.md:468–475; uses the actual character-annihilator bounds, polynomial
+Uses the actual character-annihilator bounds, polynomial
 properness, and Haar positivity, without a Gaussian nondegeneracy assumption. -/
 theorem gaussian_fourier_support_separation (A : AddCharData F) (v : FinPlace F)
     (μ : Measure (v.adicCompletion F)) (hμ : Measure.IsAddHaarMeasure μ)

@@ -5,7 +5,7 @@ import ArtinPrimitiveRoots.Hecke.Theta.IdealNormSummability
 /-!
 # A2-QS-MATRIX, part M1: uniform ideal counts, divisor bounds, squarefree parts, tails
 
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:307-326`.  Hints: Mathlib
+Hints: Mathlib
 `Ideal.finite_setOfPred_absNorm_le`, the ideal-count asymptotic
 `NumberField.Ideal.tendsto_norm_le_div_atTop` (`M/NumberTheory/NumberField/Ideal/Asymptotics.lean`)
 may replace the Euler-factor comparison for `qs_ideal_count_M1`; divisor bound by
@@ -24,7 +24,7 @@ namespace ArtinPrimitiveRoots.A2
 
 variable {K : Type} [Field K] [NumberField K]
 
-/-- M1 (IMPL): `#{I : N I ≤ X} ≪_η X^{1+η}` for `X ≥ 1` (found:309-310). -/
+/-- M1 (IMPL): `#{I : N I ≤ X} ≪_η X^{1+η}` for `X ≥ 1`. -/
 theorem qs_ideal_count_M1 (η : ℝ) (hη : 0 < η) :
     ∃ C : ℝ, 0 < C ∧ ∀ X : ℝ, 1 ≤ X →
       (((Ideal.finite_setOfPred_absNorm_le (S := 𝓞 K) ⌊X⌋₊).toFinset.card : ℕ) : ℝ) ≤
@@ -40,7 +40,7 @@ theorem qs_ideal_count_M1 (η : ℝ) (hη : 0 < η) :
     simpa only [one_mul] using hp
   exact (hcount X hX).trans (mul_le_mul_of_nonneg_left hpow hC.le)
 
-/-- M1 (IMPL): divisor bound `τ(I) ≪_η (N I)^η` (found:311-313). -/
+/-- M1 (IMPL): divisor bound `τ(I) ≪_η (N I)^η`. -/
 theorem qs_divisor_bound_M1 (η : ℝ) (hη : 0 < η) :
     ∃ C : ℝ, 0 < C ∧ ∀ I : Ideal (𝓞 K), I ≠ ⊥ →
       (((qsDivisors I).card : ℕ) : ℝ) ≤ C * (Ideal.absNorm I : ℝ) ^ η := by
@@ -136,7 +136,7 @@ private theorem qs_squarefree_decomposition_unique_aux
       _ = (normalizedFactors d).prod := congrArg Multiset.prod hfb_eq
       _ = d := Ideal.prod_normalizedFactors_eq_self hd0
 
-/-- M1 (IMPL): unique squarefree decomposition `I = a₀ b²` (found:314-316). -/
+/-- M1 (IMPL): unique squarefree decomposition `I = a₀ b²`. -/
 theorem qs_squarefree_decomposition_M1 (I : Ideal (𝓞 K)) (hI : I ≠ ⊥) :
     ∃! p : Ideal (𝓞 K) × Ideal (𝓞 K), Squarefree p.1 ∧ I = p.1 * p.2 ^ 2 := by
   classical
@@ -203,7 +203,7 @@ theorem qs_sfNorm_eq_M1 (a₀ b : Ideal (𝓞 K)) (ha₀ : Squarefree a₀) (hb 
         Ideal.absNorm (normalizedFactors a₀).prod := congrArg Ideal.absNorm hprod
     _ = Ideal.absNorm a₀ := by rw [Ideal.prod_normalizedFactors_eq_self ha₀0]
 
-/-- M1 (IMPL): rapid-decay tails over ideals (found:320-324): if `‖h x‖ ≤ C_A x^{-A}` for
+/-- M1 (IMPL): rapid-decay tails over ideals: if `‖h x‖ ≤ C_A x^{-A}` for
 `x ≥ 1` and `A > 1 + η`, then `Σ_{N I > T} ‖h(N I / X)‖ ≪ C_A X^A T^{1+η-A}` for
 `T ≥ max 1 X`; the constant depends only on `K, η, A`. -/
 theorem qs_tail_bound_M1 (η A : ℝ) (hη : 0 < η) (hA : 1 + η < A) :

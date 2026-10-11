@@ -10,7 +10,7 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- A1-LAMBDA IMPL: Adapt OAI.ringComplex_conjO with arbitrary embedding: a complex cubic root has norm one, and conjugation sends omega to its square.
-Guide: sol-thin-a1/PROOFS.md:428-439. Uses: Definitions. -/
+Uses: Definitions. -/
 theorem eisenstein_embedding_conjugation (σ : E →+* ℂ) (a : OE) :
     integerComplex σ (OAI.ActualEisensteinCubic.conjO a) =
       (starRingEnd ℂ) (integerComplex σ a) := by

@@ -91,7 +91,7 @@ private theorem pd5_boundary_full_active_sum {K : ℕ} (F : PDFix K) (S : PDScal
       exact hgroup i
 
 /-- Uniform boundary squared norm at most two and nonnegative measure.
-Guide `runs/lanes/sol-thin-pd5/PROOFS.md:502–536`; uses pd5_scale_facts and b-prime bounds;
+Uses pd5_scale_facts and b-prime bounds;
 feeds low-rank norm iteration, with no dependence on G. -/
 theorem pd5_boundary_norm_near_one (δ c₁ c₂ : ℝ) (K : ℕ) (F : PDFix K) (hF : F.Valid) :
     PD5BoundaryAvailable δ c₁ c₂ F := by

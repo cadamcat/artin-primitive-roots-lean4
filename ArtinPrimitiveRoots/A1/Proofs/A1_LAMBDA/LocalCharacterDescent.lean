@@ -10,7 +10,7 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- A1-LAMBDA IMPL: Multiply the finite product by the finite product of infinite coordinates, descend using L.principal_product and QuotientGroup.lift. Compute single-place coordinates with Dictionary lemmas; local norms one give unitarity.
-Guide: sol-thin-a1/PROOFS.md:428-439. Uses: FiniteLocalProduct. -/
+Uses: FiniteLocalProduct. -/
 theorem local_character_descent (L : LocalCharacterData F) :
     ∃ χ : LambdaChar F, unitary χ ∧
       (∀ (v : FinPlace F) (u : (v.adicCompletion F)ˣ),

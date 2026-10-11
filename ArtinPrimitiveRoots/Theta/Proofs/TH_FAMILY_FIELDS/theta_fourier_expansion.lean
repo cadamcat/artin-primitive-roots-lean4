@@ -355,7 +355,6 @@ private theorem thetaFourier_nFin_diag {P : CoverPackage D S H A} (ν : Fˣ) (ξ
         (P.tc.rat (upperGL ξ) * nInf P (-(infEmbA ξ))) := by group
 
 /-- Export summability and the exact zero/nonzero-frequency split for the normalized residue.
-Guide: sol-thin-thglobal/PROOFS.md:1204–1207.
 Uses ThetaTorusFourierInput (supplied by torus_fourier_expansion), theta_constantTerm, theta_fourierCoeff, thetaWhit_nFin argument and mixed root differentiation. -/
 theorem theta_fourier_expansion {P : CoverPackage D S H A}
     (hRP : HasRestrictedProductTopology P)

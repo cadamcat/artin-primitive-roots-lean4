@@ -1,8 +1,7 @@
 import ArtinPrimitiveRoots.TypeII.Proofs.pcr_opus.Triangular
 import ArtinPrimitiveRoots.TypeII.Proofs.«PD-LOW».SignSupport
 
-/-! Positive edge choice rows with prescribed births (guide
-`runs/lanes/sol-thin-pd5/PROOFS.md:245–327`). The position sum is supplied as a hypothesis
+/-! Positive edge choice rows with prescribed births. The position sum is supplied as a hypothesis
 (uniform in target lists and direction); the fresh/promotion choices are summed with the
 triangular bound on `Fin K`, encoding promotion index `k` as `k` and fresh prime `p` as
 `p + len`. Active averages are probability averages. -/

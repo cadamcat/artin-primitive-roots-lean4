@@ -12,8 +12,8 @@ namespace ArtinPrimitiveRoots.Hecke
 variable {K : Type*} [Field K] [NumberField K]
 
 /-- The weighted ordinary-class sum is H1's ray-character sum. Orthogonality also removes
-the zero point at the unit modulus. Guide: sol-thin-hk2/PROOFS.md:1340–1370,1512–1537;
-sol-thin-hk1/PROOFS.md:1021–1067. Uses H1's ray ideal parametrization, weighted unit-box
+the zero point at the unit modulus.
+Uses H1's ray ideal parametrization, weighted unit-box
 unfolding and hk_point_ideal_integral; no primitive FE assumption is needed. -/
 theorem hk_weighted_theta_eq_ray_character [IsTotallyComplex K] {m : RayClassModulus K}
     (ψ : RayClassGroup m →* ℂˣ) (hψ : ψ ≠ 1) {t : ℝ} (ht : 0 < t) :

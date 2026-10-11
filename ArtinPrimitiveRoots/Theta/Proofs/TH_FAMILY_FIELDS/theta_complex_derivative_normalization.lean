@@ -12,7 +12,6 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
   {H : HilbertData F} {A : AddCharData F}
 
 /-- Normalize the differentiated common-section coefficient to the exact T5 indicator and Bessel expression with cS = 4π.
-Guide: sol-thin-thglobal/PROOFS.md:1180–1190.
 Uses theta_complex_derivative_tensor, theta_normalizationScalar_ne_zero, jacquetC_derivative and CoverPackage.aS_components. -/
 theorem theta_complex_derivative_normalization {P : CoverPackage D S H A}
     {N : ThetaNormalizationInput P} {𝓛 : Finset (SChar S)}

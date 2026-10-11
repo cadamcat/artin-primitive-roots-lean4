@@ -7,7 +7,7 @@ import ClassFieldTheory.AlgebraicNumberTheory.RayClass.Narrow
 # Bridge the frozen ray-class copy to the compiled CFT ideal API
 
 The CFT ideal/idele API lives in the separate `RayClass` namespace. For totally complex fields,
-this file identifies its ray class group with the frozen worktree copy without importing the
+this file identifies its ray class group with the frozen copy without importing the
 unbuilt legacy `RayClassIdealModulusProjection` module.
 -/
 

@@ -11,7 +11,7 @@ namespace ArtinPrimitiveRoots.A1.Spec
 variable {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
 
 /-- Smoothing every quotient L2 vector gives a smooth representative in positive coordinates.
-Guide: `sol-thin-spec/PROOFS.md:408`. Uses `radialKernel_compact_control`,
+Uses `radialKernel_compact_control`,
 `param_deriv_integral_formula`, `localLiftCLM`, and frozen `G3_volume`, `T1_l2`.
 Supplies the smoothness conjunct of frozen `S1_smoothing`. -/
 theorem smoothing_smooth_representative (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]

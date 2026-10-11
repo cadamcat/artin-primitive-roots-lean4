@@ -256,7 +256,7 @@ theorem support (M c : ℕ) (u : ℤ) (K : ℕ) (a : Fin K → ℝ) (Ψ : ℝ �
 /-- `con:type-ii`, 12-construction.tex:92-159. Here `R_γ` and `B_γ` are the rough indicator and
 the Buchstab proxy, and the weight is the actual §12 weight. The threshold for `K` depends on the
 Type II scale parameter only; the estimate is uniform in dyads, intervals, and coefficients.
-Correction 7 from review lane `rev-b` adds the interval and ordered scale conditions. -/
+Adds the interval and ordered scale conditions. -/
 theorem con_type_ii
     (δ γ sMin sMax c₁ c₂ : ℝ) (hδ : 0 < δ) (hγ : 0 < γ)
     (hγs : γ < sMin) (hs : sMin < sMax) (hsMax : sMax < 1)
@@ -292,7 +292,7 @@ theorem con_type_ii
 
 set_option maxHeartbeats 1000000 in
 /-- `con:harmonic`, 12-construction.tex:184-237. The tail bound is for `r > x^ε` (every partial sum up to `R`; the
-terms are nonnegative), as in the paper; the first skeleton bounded `r ≤ x^ε` (lane `c2b`, 2026-10-07). -/
+terms are nonnegative), as in the paper; the first skeleton bounded `r ≤ x^ε` (2026-10-07). -/
 theorem con_harmonic (M c : ℕ) (u : ℤ) (Ψ : ℝ → ℝ)
     (K : ℕ) (a : Fin K → ℝ) (hM : 0 < M) (hc : 0 < c)
     (ha : ValidBands K a) (hΨ : IsTestFunction Ψ) :
@@ -1634,7 +1634,7 @@ theorem con_harmonic (M c : ℕ) (u : ℤ) (Ψ : ℝ → ℝ)
 
 set_option maxHeartbeats 0
 /-- `co:bv-smoothed`, 12-construction.tex:286-349. The progression hypotheses `hc24`, `hu`, `hcu`, `hcu'` (those of
-`prop:controlled`) were added on 2026-10-07: without them the statement is false (lane `c2`, `M = 4, c = 2, u = 1`). -/
+`prop:controlled`) were added on 2026-10-07: without them the statement is false (counterexample: `M = 4, c = 2, u = 1`). -/
 theorem bv_smoothed (M c : ℕ) (u : ℤ) (K : ℕ) (a : Fin K → ℝ)
     (Ψ : ℝ → ℝ) (ε κ : ℝ)
     (hM : 0 < M) (hc : 0 < c) (hcM : c ∣ M)
@@ -4574,7 +4574,7 @@ theorem con_bin_mass (M c : ℕ) (u : ℤ) (K : ℕ) (a : Fin K → ℝ)
   · intro x hx
     exact (hSupportAll x hx).2.1
 
-/-- `co:bin-cost`, 12-construction.tex:505-561. Correction 8 from review lane `rev-b` requires
+/-- `co:bin-cost`, 12-construction.tex:505-561. Requires
 the fixed progression assumptions from §12. -/
 theorem bin_cost (M c : ℕ) (u : ℤ) (κ b : ℝ)
     (hM : 0 < M) (h8 : 8 ∣ M) (hc24 : c = 2 ∨ c = 4) (hcM : c ∣ M)
@@ -5519,8 +5519,8 @@ def HasBalancedBoxCover (Cdyad : ℝ) : Prop :=
                       n ∈ dyadicIntegers (H₂ i) ∧ m.Prime ∧ n.Prime ∧ d = m * n)
 
 set_option maxHeartbeats 8000000 in
-/-- `co:balanced-cost`, 12-construction.tex:736-775. Correction from refutation lane `sol-gate-b`
-ties `C₁` and `C_dyad` to their preceding estimates and includes `8 ∣ M`. -/
+/-- `co:balanced-cost`, 12-construction.tex:736-775.
+Ties `C₁` and `C_dyad` to their preceding estimates and includes `8 ∣ M`. -/
 theorem balanced_cost (M : ℕ) (Ψ : ℝ → ℝ) (C₁ Cdyad : ℝ)
     (hM : 0 < M) (h8 : 8 ∣ M) (hΨ : IsTestFunction Ψ)
     (hC₁ : 0 < C₁) (hCdyad : 0 < Cdyad)

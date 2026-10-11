@@ -14,7 +14,7 @@ variable {D : FieldData F} {S : SData F CE condη}
 variable {μ : ∀ v : FinPlace F, Theta.LocHaar v} {v0 : InfinitePlace F}
 
 /-- Absolute tensor sum on units; definitionally equal to rotatedAbs with projected R.rotated data.
-Guide: sol-thin-a2rp/PROOFS.md:55–62. Uses the actual finite and complex factors. -/
+Uses the actual finite and complex factors. -/
 def bridgeRotatedAbs (S : SData F CE condη) (J : ℕ)
     (ff : Fin J → (v : S.Sf) → v.1.adicCompletion F → ℂ)
     (fc : Fin J → InfinitePlace F → ℂ → ℂ) (y : S.FSˣ) : ℝ :=
@@ -50,14 +50,14 @@ private theorem bridgeRotatedAbsAll_measurable (δ : ℝ) (J : ℕ)
       ((measurable_pi_apply w).comp measurable_snd)
 
 /-- Absolute sheet profile, definitionally equal to profileAbs on the consumer's projected data.
-Guide: sol-thin-a2rp/PROOFS.md:55–62. Uses bridgeRotatedAbs and bridgeSheetIntegral. -/
+Uses bridgeRotatedAbs and bridgeSheetIntegral. -/
 def bridgeProfileAbs (G : SheetGeometry D S μ v0) (J : ℕ)
     (ff : Fin J → (v : S.Sf) → v.1.adicCompletion F → ℂ)
     (fc : Fin J → InfinitePlace F → ℂ → ℂ) (x : ℝ) : ℝ :=
   (bridgeSheetIntegral G x (fun y => (bridgeRotatedAbs S J ff fc y : ℂ))).re
 
 /-- One profile tensor with its actual bounded multiplier. No ReflectionSetup import is needed.
-Guide: sol-thin-a2rp/PROOFS.md:55–62. Uses bridgeSheetIntegral. -/
+Uses bridgeSheetIntegral. -/
 def bridgeProfileH (G : SheetGeometry D S μ v0) (m : S.FSˣ → ℂ) (J : ℕ)
     (ff : Fin J → (v : S.Sf) → v.1.adicCompletion F → ℂ)
     (fc : Fin J → InfinitePlace F → ℂ → ℂ) (ℓ : Fin J) (x : ℝ) : ℂ :=
@@ -820,7 +820,7 @@ private theorem bridgeRotatedAbs_nonneg (J : ℕ)
     exact norm_nonneg _
 
 /-- Absolute tensors are integrable on each positive sheet.
-Guide: sol-thin-a2rp/PROOFS.md:55–62. Uses local hypotheses and the sheet parametrization. -/
+Uses local hypotheses and the sheet parametrization. -/
 theorem a2_bridge_ANALYSIS (δ : ℝ) (hδ : 0 < δ) (J : ℕ)
     (ff : Fin J → (v : S.Sf) → v.1.adicCompletion F → ℂ)
     (fc : Fin J → InfinitePlace F → ℂ → ℂ)
@@ -862,7 +862,7 @@ theorem a2_bridge_ANALYSIS (δ : ℝ) (hδ : 0 < δ) (J : ℕ)
   exact (hrad.const_mul C).mono' htargetAEStrong hdom
 
 /-- Each tensor multiplied by an admissible bounded S-character/class multiplier is integrable.
-Guide: sol-thin-a2rp/PROOFS.md:55–62. Uses ANALYSIS and Theta.SheetMultiplier. -/
+Uses ANALYSIS and Theta.SheetMultiplier. -/
 theorem a2_bridge_ANALYSIS_tensor (δ : ℝ) (hδ : 0 < δ) (J : ℕ)
     (ff : Fin J → (v : S.Sf) → v.1.adicCompletion F → ℂ)
     (fc : Fin J → InfinitePlace F → ℂ → ℂ)
@@ -1394,7 +1394,7 @@ private theorem bridgeProfileH_norm_bound (δ : ℝ) (hδ : 0 < δ) (J : ℕ)
       rw [integral_const_mul, ← hProfileEq]
 
 /-- Convolution majorants exist as integrable functions before bounds on their integrals.
-Guide: sol-thin-a2rp/PROOFS.md:55–62. Uses ANALYSIS, ANALYSIS_tensor and all kernel moments. -/
+Uses ANALYSIS, ANALYSIS_tensor and all kernel moments. -/
 theorem a2_bridge_ANALYSIS_convolution (δ : ℝ) (hδ : 0 < δ) (J : ℕ)
     (ff : Fin J → (v : S.Sf) → v.1.adicCompletion F → ℂ)
     (fc : Fin J → InfinitePlace F → ℂ → ℂ)

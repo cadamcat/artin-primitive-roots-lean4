@@ -7079,7 +7079,7 @@ theorem whit_tensor_formula (P : CoverPackage D S H A) (G : GlobalDatum P)
 
 /-- **eis:multilinear** (linearity at the places of `S_f`): with the exterior and complex data fixed,
 `W_E(g)` is a multilinear form in the local Jacquet vectors at `S_f`. The convergence half-plane
-is required per `sol-thin-thglobal` for the defining `tsum`. -/
+is required for the defining `tsum`. -/
 theorem whittakerE_multilinear (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (Fs : GlobalSection P G s) (x0 : P.RP)
     (hs : (1 / 2 : ℝ) < s.re) :

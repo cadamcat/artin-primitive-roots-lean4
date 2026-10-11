@@ -13,7 +13,7 @@ open ArtinPrimitiveRoots.HeckeBoundary
 open Filter
 
 /-- Zero-free Hecke continuations transfer through a finite Euler factorization.
-Guide: ../sol-thin-s7/PROOFS.md:435–474. Uses `thm_hecke_zero_free`, the sharp-zeta
+Uses `thm_hecke_zero_free`, the sharp-zeta
 dictionary, and the meromorphic identity principle. Feeds `sp_upstairs_factor`.
 No pointwise equality at poles is asserted. -/
 theorem upstairs_continuation_nonvanishing (a : ℤ) (q : ℕ)

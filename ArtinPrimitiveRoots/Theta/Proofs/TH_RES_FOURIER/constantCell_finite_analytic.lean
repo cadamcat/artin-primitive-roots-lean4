@@ -492,7 +492,7 @@ private theorem rawM_scalar_support {P : CoverPackage D S H A} {G : GlobalDatum 
 
 /-- Both scalar cell sums have one finite delta support for the whole positive half-plane;
 every surviving scalar factor is analytic there. This supplies uniform support near 1/6.
-Guide: sol-thin-thglobal/PROOFS.md:835–843. Uses intertwine_isSection, sphWeyl,
+Uses intertwine_isSection, sphWeyl,
 intertwineC_spherical, and the compact/Alag finite-coset argument. Feeds theta_constantTerm. -/
 theorem constantCell_finite_analytic {P : CoverPackage D S H A} {G : GlobalDatum P}
     {μ : ∀ v : FinPlace F, LocHaar v} {sec : ∀ s : ℂ, GlobalSection P G s}

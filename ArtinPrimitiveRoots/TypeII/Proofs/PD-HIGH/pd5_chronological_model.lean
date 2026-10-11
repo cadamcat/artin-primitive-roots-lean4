@@ -505,7 +505,7 @@ private theorem pd5_stateRegion_finite {δ c₁ c₂ : ℝ} {K : ℕ}
     exact ⟨c, Finset.mem_univ c, hdecode⟩
 
 /-- Finite invariant cutoff state set and exact finite kernel expansions of local twists.
-Guide `runs/lanes/sol-thin-pd5/PROOFS.md:92–150,771–805`. Uses pd5_envBox_finite_of_valid
+Uses pd5_envBox_finite_of_valid
 and finite cutoff expansions; feeds fixed-system estimates and low-rank norm iteration. -/
 theorem pd5_chronological_model (δ c₁ c₂ : ℝ) (K : ℕ) (F : PDFix K)
     (S : PDScale) (hS : S.Valid K δ c₁ c₂) (ρ : ℝ) (w : ArchRoot) (hw : w.InRegion S)

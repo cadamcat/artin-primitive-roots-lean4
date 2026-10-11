@@ -1981,7 +1981,7 @@ private theorem torusRegularOp_mul (D : FieldData F) (H : HilbertData F)
 
 /-- **tor:rep** (top): at every finite place a torus representation exists, of dimension
 `√[K^×:K^{×3}]`; at `v ∤ 6` one with the tame basis. The nontrivial-carrier clause is
-installed per `sol-thin-thlocal`, since `GlobalDatum.lam_ne` excludes the zero space. -/
+installed, since `GlobalDatum.lam_ne` excludes the zero space. -/
 theorem exists_torusRep (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
     (hSt : SteinbergAt H v) :
     ∃ T : TorusRep D H v, Nontrivial T.V ∧

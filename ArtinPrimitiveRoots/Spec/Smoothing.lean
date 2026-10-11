@@ -81,8 +81,8 @@ theorem S1_smoothing (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
 
 /-- S2 `spec:Lk-seed` — P-SPEC.md:245, 411–415. Radial powers are eigenfunctions of the
 smoothing kernel, the one-factor transform is entire and nonvanishing in the required ball, and
-the operator commutes with the Eisenstein series in its convergence region. Correction from review
-lane `rev-spec`: require the smooth, nonnegative, supported, nonzero kernel hypotheses from S1. -/
+the operator commutes with the Eisenstein series in its convergence region.
+Requires the smooth, nonnegative, supported, nonzero kernel hypotheses from S1. -/
 theorem S2_smoothing_seed (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (σ : SL(2,F)) (k₀ : ℝ → ℝ)
     (hkSmooth : ContDiff ℝ ∞ k₀) (hkNonneg : ∀ t, 0 ≤ k₀ t)
@@ -127,9 +127,9 @@ def S3_unsmoothed_base (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
 
 /-- S3 `spec:econt` — P-SPEC.md:246, 417–420. The smoothed resolvent correction gives a
 pointwise continuation with the same convergence values and residue as the `L²` continuation.
-Correction from review lane `rev-spec`: supply kernel data and cusp separation, and require the
-transform to be nonzero at the residue center. Correction from `sol-gate-spec`: require the
-unsmoothed base identity on the convergence ball.  On 2026-10-07 `hu` was weakened from radius `1` to the returned radius `ε` (the Eisenstein pole at `1/2` made the radius-one input unsatisfiable for small `s₁`; lane `sol-gate-spec2`). -/
+Supply kernel data and cusp separation, and require the
+transform to be nonzero at the residue center. Require the
+unsmoothed base identity on the convergence ball.  On 2026-10-07 `hu` was weakened from radius `1` to the returned radius `ε` (the Eisenstein pole at `1/2` made the radius-one input unsatisfiable for small `s₁`). -/
 theorem S3_continuation (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (hfree : FreeAction F Γ) (σ : SL(2,F)) (s₁ : ℝ)
     (hs₀ : 0 < s₁) (hs₁ : s₁ ≤ 1 / 2)

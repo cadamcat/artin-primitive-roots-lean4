@@ -3,9 +3,8 @@ import Mathlib
 /-!
 # P-SPEC interface (draft for freezing; JSP-000027, A1 route C, 2026-10-07)
 
-Spectral input of route C (`research/design/A1-DESIGN.md` §3.2, row P-SPEC), narrowed to what
-P-RES / P-REDUCTION / P-EIS / P-ASSEMBLE consume. Blueprint: `research/blueprint/P-SPEC.md`
-(cited below as "BP §n" and by node ID `spec:*`).
+Spectral input of route C, narrowed to what
+P-RES / P-REDUCTION / P-EIS / P-ASSEMBLE consume (cited below by node ID `spec:*`).
 
 Scope (BP §1): for a totally complex number field `F`, a finite-index subgroup `Γ ≤ SL(2, 𝓞 F)` acting
 freely on `X F = (ℍ³)^{places}`, any scaling matrix `σ ∈ SL(2,F)` and any real `0 < s₁ ≤ 1/2`, the

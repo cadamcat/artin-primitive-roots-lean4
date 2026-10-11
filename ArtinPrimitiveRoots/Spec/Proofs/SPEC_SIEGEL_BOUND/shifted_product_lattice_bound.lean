@@ -566,7 +566,7 @@ private lemma grid_array_box_sum_bound [DecidableEq (InfinitePlace F × Fin 2)]
     exact hcoord j
 
 /-- The shifted PRODUCT-lattice estimate, uniform in the shift and individual scales.
-Guide: `sol-thin-spec/PROOFS.md:353–357,360`. Uses only denominator-lattice discreteness,
+Uses only denominator-lattice discreteness,
 product shell packing, and finite products of geometric series; feeds
 `balanced_first_coordinate_fiber_bound`. The constant is chosen before the exponent,
 shift and scales; the exponent threshold is one, independent of the number of places. -/

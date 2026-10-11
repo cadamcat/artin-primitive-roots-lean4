@@ -25,7 +25,7 @@ noncomputable def logarithmicIntegral (y : ℝ) : ℝ :=
   ∫ t in (2 : ℝ)..y, 1 / Real.log t
 
 /-- Maximum prime progression error, in the `π` form used by §12. Binders typed `ℕ` on 2026-10-07: untyped,
-Lean coerced the prime set into `ZMod q` before filtering (lane `c2b`). -/
+Lean coerced the prime set into `ZMod q` before filtering. -/
 noncomputable def primeProgressionError (y : ℝ) (q : ℕ) : ℝ :=
   ((Finset.range q).filter (fun v : ℕ => Nat.Coprime v q)).fold max 0 fun v : ℕ =>
     |(((primesUpTo y).filter (fun p : ℕ => ((p : ℕ) : ZMod q) = ((v : ℕ) : ZMod q))).card : ℝ) -

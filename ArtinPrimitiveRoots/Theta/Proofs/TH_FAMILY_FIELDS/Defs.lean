@@ -12,7 +12,7 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
   {H : HilbertData F} {A : AddCharData F}
 
 /-- The finite-place multilinear normalization at exterior identity components.
-Guide: sol-thin-thglobal/PROOFS.md:1165–1172. Uses exists_globalDatum,
+Uses exists_globalDatum,
 LocHaar.nonempty, exists_theta_ne_zero, thetaWhit_ne_zero, thetaWhit_multilinear. -/
 structure ThetaNormalizationInput (P : CoverPackage D S H A) where
   G : GlobalDatum P
@@ -34,7 +34,7 @@ structure ThetaNormalizationInput (P : CoverPackage D S H A) where
       ∏ w, jacquetC (rtr (P.compC w r) (sphC (1 / 6)))
 
 /-- A common product neighborhood and the actual analytic big-cell family it defines.
-Guide: sol-thin-thglobal/PROOFS.md:1173–1180. Uses exists_T5_section and
+Uses exists_T5_section and
 ThetaNormalizationInput; no Fourier or regularity fields are assumed. -/
 structure ThetaCommonSections (P : CoverPackage D S H A)
     (N : ThetaNormalizationInput P) (𝓛 : Finset (SChar S)) where
@@ -61,14 +61,14 @@ structure ThetaCommonSections (P : CoverPackage D S H A)
       (Uv v).indicator (fun _ => N.x v) (y : v.1.adicCompletion F)
 
 /-- The common finite product neighborhood, including its empty-index case.
-Guide: sol-thin-thglobal/PROOFS.md:1173–1180. Uses ThetaCommonSections.Uv. -/
+Uses ThetaCommonSections.Uv. -/
 def thetaCommonU {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
     {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) :
     Set (∀ v : S.Sf, v.1.adicCompletion F) := {y | ∀ v, y v ∈ B.Uv v}
 
 /-- The genuine iterated right-root derivative. Its expression is definitionally equal to
 Assemble.Rderiv; keeping it here avoids a circular import of the consumer module.
-Guide: sol-thin-thglobal/PROOFS.md:1180–1190,1033–1066. Uses only nS and fderiv. -/
+Uses only nS and fderiv. -/
 def thetaFamilyDeriv (P : CoverPackage D S H A) (m : InfinitePlace F → ℤ)
     (Ψ : P.tc.G → ℂ) : P.tc.G → ℂ :=
   (Finset.univ : Finset (InfinitePlace F)).toList.foldr (fun w acc g =>
@@ -78,12 +78,12 @@ def thetaFamilyDeriv (P : CoverPackage D S H A) (m : InfinitePlace F → ℤ)
       (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z)))) 0 Complex.I) Ψ
 
 /-- The exact scalar removed from the product of complex derivative coefficients.
-Guide: sol-thin-thglobal/PROOFS.md:1180–1190. Uses the chosen nonzero multilinear evaluation. -/
+Uses the chosen nonzero multilinear evaluation. -/
 def thetaNormalizationScalar {P : CoverPackage D S H A} (N : ThetaNormalizationInput P) : ℂ :=
   N.Λ N.x * ∏ _w : InfinitePlace F, (-(4 * Real.pi * Complex.I) * besselConst)
 
 /-- The undifferentiated constant term, with the paper's residue and covolume normalization.
-Guide: sol-thin-thglobal/PROOFS.md:1200–1210. Uses theta_constantTerm's actual formula. -/
+Uses theta_constantTerm's actual formula. -/
 def thetaFamilyBaseN {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
     {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) (g : P.tc.G) : ℂ :=
   (κF F)⁻¹ * resCprod B.Fam.T0 *
@@ -91,25 +91,25 @@ def thetaFamilyBaseN {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
       (fun _ => intertwineC (sphC (1 / 6))) (P.tc.rat (diagGL (Quotient.out δ)) * g)
 
 /-- The normalized theta function for an admissible angular type.
-Guide: sol-thin-thglobal/PROOFS.md:1180–1190. Uses the actual common-family residue. -/
+Uses the actual common-family residue. -/
 def thetaFamilyTheta {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
     {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) (L : SChar S) (g : P.tc.G) : ℂ :=
   (thetaNormalizationScalar N)⁻¹ * thetaFamilyDeriv P L.m B.C.theta g
 
 /-- The normalized derivative of the residue's constant term.
-Guide: sol-thin-thglobal/PROOFS.md:1200–1210. Uses thetaFamilyBaseN. -/
+Uses thetaFamilyBaseN. -/
 def thetaFamilyThetaN {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
     {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) (L : SChar S) (g : P.tc.G) : ℂ :=
   (thetaNormalizationScalar N)⁻¹ * thetaFamilyDeriv P L.m (thetaFamilyBaseN B) g
 
 /-- W and WS use the same normalized differentiated Whittaker coefficient.
-Guide: sol-thin-thglobal/PROOFS.md:1180–1190. Uses thetaWhit of the actual common family. -/
+Uses thetaWhit of the actual common family. -/
 def thetaFamilyW {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
     {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) (L : SChar S) (g : P.tc.G) : ℂ :=
   (thetaNormalizationScalar N)⁻¹ * thetaFamilyDeriv P L.m (thetaWhit B.C) g
 
 /-- The actual normalized exterior spherical coordinate, definitionally equal to WvAll.
-Guide: sol-thin-thglobal/PROOFS.md:1188–1190,1113–1131. Uses the tame Weyl basis and jacquet. -/
+Uses the tame Weyl basis and jacquet. -/
 def thetaExteriorWv (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) (v : FinPlace F) (g : P.tc.G) : ℂ :=
   if hv : v ∉ S.Sf then
@@ -120,7 +120,7 @@ def thetaExteriorWv (P : CoverPackage D S H A) (G : GlobalDatum P)
   else 0
 
 /-- The exact undifferentiated factorization supplied by frozen thetaWhit_factor.
-Guide: sol-thin-thglobal/PROOFS.md:1188–1190,1133–1162. Uses no new family field. -/
+Uses no new family field. -/
 def ThetaBaseFactorization {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
     {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) : Prop :=
   ∀ (ν : Fˣ) (ε : Bool) (gS : P.tc.G), gS ∈ P.tc.GS →
@@ -132,7 +132,7 @@ def ThetaBaseFactorization {P : CoverPackage D S H A} {N : ThetaNormalizationInp
         ∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ T), thetaExteriorWv P N.G N.μ v (P.tc.a v (toLoc v ν))
 
 /-- The three residue action laws supplied by frozen Rderiv_spec at the common level.
-Guide: sol-thin-thglobal/PROOFS.md:1200–1204,1033–1066. Uses the actual derivative expression. -/
+Uses the actual derivative expression. -/
 def ThetaDerivativeAction {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
     {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) : Prop :=
   ∀ m : InfinitePlace F → ℤ,
@@ -141,7 +141,7 @@ def ThetaDerivativeAction {P : CoverPackage D S H A} {N : ThetaNormalizationInpu
     (∀ g, ∀ k ∈ P.tc.Kext, thetaFamilyDeriv P m B.C.theta (g * k) = thetaFamilyDeriv P m B.C.theta g)
 
 /-- The exact full-lattice Fourier theorem supplied by frozen torus_fourier_expansion.
-Guide: sol-thin-thglobal/PROOFS.md:1204–1207,1068–1096. The general C-infinity theorem,
+The general C-infinity theorem,
 not a pointwise-convergence assumption for the normalized theta family. -/
 def ThetaTorusFourierInput (P : CoverPackage D S H A) : Prop :=
   ∀ (Ψ : P.tc.G → ℂ) (g : P.tc.G)
@@ -156,7 +156,7 @@ def ThetaTorusFourierInput (P : CoverPackage D S H A) : Prop :=
 
 /-- The universal frozen factorization input needed to move a nonzero Whittaker value
 back to the S-part before choosing the normalization vectors.
-Guide: sol-thin-thglobal/PROOFS.md:1165–1172,1133–1162. Supplied by thetaWhit_factor. -/
+Supplied by thetaWhit_factor. -/
 def ThetaFactorizationInput (P : CoverPackage D S H A) : Prop :=
   ∀ (G : GlobalDatum P) (μ : ∀ v : FinPlace F, LocHaar v)
     (Fam : AnalyticFamily P G μ), Fam.T0 = S.Sf → ∀ C : ContinuedEis Fam,
@@ -169,7 +169,7 @@ def ThetaFactorizationInput (P : CoverPackage D S H A) : Prop :=
         ∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ T), thetaExteriorWv P G μ v (P.tc.a v (toLoc v ν))
 
 /-- The exterior laws supplied verbatim by frozen WvAll_spec.
-Guide: sol-thin-thglobal/PROOFS.md:1188–1190. Uses thetaExteriorWv. -/
+Uses thetaExteriorWv. -/
 def ThetaExteriorSpec (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) : Prop :=
   (∀ v, v ∉ S.Sf → ∀ ζ g, thetaExteriorWv P G μ v (P.tc.z ζ * g) = ((ζ : ℂˣ) : ℂ) * thetaExteriorWv P G μ v g) ∧
@@ -184,7 +184,7 @@ def ThetaExteriorSpec (P : CoverPackage D S H A) (G : GlobalDatum P)
 
 /-- Only already-frozen upstream laws, assembled by the consumer module. These are
 explicit inputs to avoid importing Assemble back into its own helper files.
-Guide: sol-thin-thglobal/PROOFS.md:1180–1224. Uses Rderiv_spec, thetaWhit_factor,
+Uses Rderiv_spec, thetaWhit_factor,
 thetaWhit_nFin, WvAll_spec and torus_fourier_expansion; assumes no ThetaFamily field. -/
 structure ThetaFamilyUpstream {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
     {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) : Prop where

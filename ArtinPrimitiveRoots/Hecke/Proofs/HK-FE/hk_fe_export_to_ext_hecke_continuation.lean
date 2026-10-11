@@ -10,7 +10,6 @@ variable {K : Type*} [Field K] [NumberField K]
 
 /-- Shared primitive ray-character producer for HK-H3 and A2-FE-GLUE. Its completion is
 entire, its root number is unimodular, and the Gamma product is asserted only off poles.
-Guide: sol-thin-hk2/PROOFS.md:1512–1592; sol-thin-a2zf/PROOFS.md:451–513.
 Uses residue/trace producers, hk_root_number_norm, hk_mellin_FE_completed,
 hk_completed_gamma_product and hk_entire_L_agreement. A2 supplies the idelic dictionary;
 HK-H3 supplies polynomial growth from the preliminary exponential strip bounds. -/

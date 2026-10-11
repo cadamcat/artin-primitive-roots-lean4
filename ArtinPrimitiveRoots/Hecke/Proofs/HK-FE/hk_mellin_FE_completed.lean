@@ -11,7 +11,7 @@ namespace ArtinPrimitiveRoots.Hecke
 variable {K : Type*} [Field K] [NumberField K]
 
 /-- Mellin transport of the scalar theta equation; no Gamma product is evaluated at a pole.
-Guide: sol-thin-hk2/PROOFS.md:1477–1511. Uses hk_weighted_theta_scalar_FE,
+Uses hk_weighted_theta_scalar_FE,
 hk_weighted_theta_hasMellin and the inverse primitive/nontrivial character facts. -/
 theorem hk_mellin_FE_completed [IsTotallyComplex K] {m : RayClassModulus K}
     (ψ : RayClassGroup m →* ℂˣ) (hψ : ψ ≠ 1)

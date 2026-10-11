@@ -12,8 +12,7 @@ import Mathlib.NumberTheory.NumberField.Completion.FinitePlace
 /-!
 # Hecke package: dictionary between ray-class characters and A1's idelic characters
 
-Frozen interface (owned by the Hecke package). Design: `research/design/A2-Dictionary.lean`, `A2-ALIGN.md` §2
-(Opus A2 sub-agent, 2026-10-07); `ConductorDvd'` of the draft is A1's corrected `HeckeChar.ConductorDvd`.
+Frozen interface (owned by the Hecke package). Conductor divisibility is A1's corrected `HeckeChar.ConductorDvd`.
 
 Statements against the two frozen interfaces, imported directly from the built repo modules
 `ArtinPrimitiveRoots.Hecke.Defs` and `ArtinPrimitiveRoots.A1.Characters` (both Mathlib-only).

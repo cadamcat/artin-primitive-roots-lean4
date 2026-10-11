@@ -21,7 +21,7 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- The exact quadratic sign-character endpoint below Characters.lean, without an import cycle.
-Guide: PROOFS.md:487–489. Uses the proved descent and the frozen local/global parts. -/
+Uses the proved descent and the frozen local/global parts. -/
 theorem quadratic_sign_character_data (D : FieldData F) (S : SData F CE condη)
     (A : AddCharData F) (H : HilbertData F) (Bd : BData S H) :
     ∃ θB : Bd.B →* ℂˣ, ∀ v : FinPlace F, v ∉ S.Sf →

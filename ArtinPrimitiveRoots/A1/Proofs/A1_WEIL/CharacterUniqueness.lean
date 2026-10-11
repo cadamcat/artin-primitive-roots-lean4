@@ -130,7 +130,7 @@ private theorem completion_principal_part (v : FinPlace F) (x : v.adicCompletion
 /-- The global trace compatibility and local integral kernel determine every finite
 character. A CRT multiplier isolates the principal part at one place, so the global
 product fixes its value; density then covers every completion element.
-Guide: PROOFS.md:480–485; no local trace or continuity hypothesis is assumed. -/
+No local trace or continuity hypothesis is assumed. -/
 theorem integral_global_character_family_unique (A : AddCharData F)
     (χ : (v : FinPlace F) → AddChar (v.adicCompletion F) ℂ)
     (hχint : ∀ (v : FinPlace F) (x : v.adicCompletion F),

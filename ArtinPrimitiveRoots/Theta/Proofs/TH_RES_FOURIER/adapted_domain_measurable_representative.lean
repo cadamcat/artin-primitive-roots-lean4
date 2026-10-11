@@ -11,7 +11,7 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
   {H : HilbertData F} {A : AddCharData F}
 
 /-- Replace a bounded null-measurable fundamental domain by a bounded measurable one a.e.
-Guide: sol-thin-thglobal/PROOFS.md:846–848. Uses IsAddFundamentalDomain.nullMeasurableSet.
+Uses IsAddFundamentalDomain.nullMeasurableSet.
 Feeds torusCoeff_analytic and all three frozen residue Fourier declarations. -/
 theorem adapted_domain_measurable_representative
     (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)

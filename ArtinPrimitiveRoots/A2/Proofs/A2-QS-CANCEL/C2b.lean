@@ -5,8 +5,7 @@ import ArtinPrimitiveRoots.Proofs.qs_c_p.C2bHelpers
 /-!
 # A2-QS-CANCEL, part C2b: the paired main-term (boundary) bound
 
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:473-498` (`paired_main_bound`), lead's form: after
-C1 only the boundary `κ/N t < N h ≤ κ` remains; `1/√N h ≤ √(N t/κ)` and the factor
+After C1 only the boundary `κ/N t < N h ≤ κ` remains; `1/√N h ≤ √(N t/κ)` and the factor
 `ψ(t)/√N t` give `1/√κ`.  `ψ(h) = χ_c(h) χ_d(h)` (`qs_gcd_pair_identity_S0` with `g = ⊤`), the
 `e, t ∣ 𝔮` factors and `φ(c d)/N(c d) = (φ(c)/N c)(φ(d)/N d)` are column twists of modulus
 `≤ 1` (at primes of `qsBadRad` use the local components, which are multiplicative in `c, d`);

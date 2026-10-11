@@ -661,7 +661,7 @@ private lemma endpoint_finite_tsum_norm_sq_le
 /-- `t2:pd.endpoints` — PD `03-determinant.tex:295-341`. The endpoint vectors are supported on
 lists with exactly `M_J` distinct marked primes in every group, have the indicated coordinates,
 and satisfy the norm and pointwise bounds uniform in `K,J`.
-The constant `B` was added on 2026-10-07: without it the bound fails at small `x` (lane `pd1`). -/
+The constant `B` was added on 2026-10-07: without it the bound fails at small `x`. -/
 theorem endpoint_bounds
     (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C)
     (hc₁ : 0 < c₁) (hc₂ : 0 < c₂) :

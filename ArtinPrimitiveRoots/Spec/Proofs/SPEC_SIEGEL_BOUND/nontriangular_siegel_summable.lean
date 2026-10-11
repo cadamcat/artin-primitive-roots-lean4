@@ -38,7 +38,7 @@ private theorem specSiegelB_lowerHeight_pos (Γ : Subgroup SL(2,𝓞 F)) [Γ.Fin
   exact inv_pos.mpr (mul_pos hnormR d.C_M_pos)
 
 /-- Assemble the uniformly summable nontriangular terms and gradients on one
-Siegel set. Guide: `sol-thin-spec/PROOFS.md:351,358–360`. Uses
+Siegel set. Uses
 `nontriangular_rows_unit_orbit`, `balanced_denominator_rows_bound`, and
 `eis_term_row_kernel_gradient`; feeds the second conjunct of `E4_eis_siegel`.
 For a nonempty parameter compactum use the extrema of `1+2 Re(s)` and `|1+2s|`;

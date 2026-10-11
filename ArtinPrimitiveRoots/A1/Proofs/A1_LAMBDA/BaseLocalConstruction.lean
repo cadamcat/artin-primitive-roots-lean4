@@ -11,7 +11,7 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- A1-LAMBDA LEAD: Construct the conductor-(3) finite local factors from primary unit normalization; use the inverse angular factor at infinity. Prove the principal product formula before idelic descent.
-Guide: sol-thin-a1/PROOFS.md:428-439. Uses: Definitions. -/
+Uses: Definitions. -/
 theorem base_local_data_exists (σ : E →+* ℂ)
     (φ : Ideal OE →*₀ ℂ)
     (hφ : ∀ I : Ideal OE,

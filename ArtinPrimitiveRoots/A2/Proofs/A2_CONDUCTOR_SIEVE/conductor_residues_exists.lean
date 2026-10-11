@@ -258,7 +258,6 @@ private theorem conductorResidueRed_surjective (S : A1.SData F CE condη)
 
 /-- Localization away from S identifies R/qR with O_F/q; include the unit
 modulus and do not choose a junk residue for an element with a denominator.
-Guide: sol-thin-a2zf/PROOFS.md:666–677.
 Uses exterior coprimality; feeds primitive_conductor_residue_bridge. -/
 theorem conductor_residues_exists (S : A1.SData F CE condη) :
     Nonempty (ConductorResidues S) := by

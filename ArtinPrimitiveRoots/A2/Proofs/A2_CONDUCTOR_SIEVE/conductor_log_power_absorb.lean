@@ -9,7 +9,7 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- Absorb any fixed logarithmic power into an arbitrarily small positive
-loss, uniformly for N,U at least two. Guide: sol-thin-a2zf/PROOFS.md:737–740.
+loss, uniformly for N,U at least two.
 Uses elementary exponential domination; feeds conductor_sieve_assemble. -/
 theorem conductor_log_power_absorb (k : ℕ) :
     ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧

@@ -85,7 +85,6 @@ private theorem thetaFamilyDeriv_const_mul {P : CoverPackage D S H A}
   exact hFold (Finset.univ : Finset (InfinitePlace F)).toList g
 
 /-- Differentiate the frozen base factorization through commuting exterior translators and preserve its exact finite and finite-support products.
-Guide: sol-thin-thglobal/PROOFS.md:1188–1190,1133–1162.
 Uses ThetaBaseFactorization (supplied by thetaWhit_factor), thetaFamilyDeriv and CoverPackage.comm_S. -/
 theorem theta_family_factor {P : CoverPackage D S H A}
     {N : ThetaNormalizationInput P} {𝓛 : Finset (SChar S)}

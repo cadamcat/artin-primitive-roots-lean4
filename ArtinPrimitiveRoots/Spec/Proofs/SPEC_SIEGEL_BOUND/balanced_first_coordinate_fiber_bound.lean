@@ -133,7 +133,7 @@ private lemma row_kernel_eq_shifted (c a : F) (hc : c ≠ 0)
 
 /-- Substitute `l_w = |w(c)| y_w` in the shifted product-lattice bound.
 Balanced nonzero c and positive balanced heights with a product floor give a uniform
-positive scale floor. Guide: `sol-thin-spec/PROOFS.md:353–358`. Uses
+positive scale floor. Uses
 `shifted_product_lattice_bound` and the positive integer norm lower bound; feeds
 `balanced_denominator_rows_bound`. -/
 theorem balanced_first_coordinate_fiber_bound (D : ℕ) (hD : 0 < D)

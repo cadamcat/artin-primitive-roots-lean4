@@ -15,8 +15,7 @@ open Classical
 family satisfying the long Dirichlet-polynomial interface, the marked bilinear form has arbitrary
 logarithmic saving once the number of marked bands is sufficiently large. The lower bound on `K`
 is chosen after the fixed scale constants `c₁ ≤ c₂` and before the band exponents and the family (2026-10-07: the
-earlier form chose it before `c₁, c₂`, which the PD chain does not provide and no consumer needs; lane `mct`). Correction
-2 from review lane `rev-b` requires ordered scale constants and an interval coefficient domain. -/
+earlier form chose it before `c₁, c₂`, which the PD chain does not provide and no consumer needs). Requires ordered scale constants and an interval coefficient domain. -/
 theorem marked_coefficient_transfer
     (δ C Dstar q_d c₁ c₂ : ℝ)
     (hδ : 0 < δ) (hC : 0 < C) (hD : 0 < Dstar)

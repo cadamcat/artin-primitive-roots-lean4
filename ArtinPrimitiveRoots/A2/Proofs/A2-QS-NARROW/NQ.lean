@@ -6,9 +6,6 @@ import ArtinPrimitiveRoots.Proofs.qs_e_p.NQ1Helpers
 /-!
 # A2-QS-NARROW: canonical narrow family, representatives, and the three frozen endpoints
 
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:585-602` (NQ0-NQ2), III.10 (found:604-621, G0-G3),
-`runs/lanes/sol-thin-a2rp/PROOFS.md:348-388`.
-
 Route decision (lead): the narrow theorem is glued directly from the core
 (`qs_core_large_sieve_B2`) through the canonical narrow family (NQ0, trivial ray factor,
 `qS ≠ ⊥`, totally complex by `μ₁₂`), not through the general `ext_goldmakher_louvel`.  The
@@ -54,7 +51,7 @@ theorem qs_totallyComplex_of_mu12_NQ (hμ : ∃ ζ : K, IsPrimitiveRoot ζ 12) :
   · have : (ι ζ) ^ 6 = -1 := h
     linarith
 
-/-- NQ0 (SOL-LEAD; RETIER `qs_canonical_family_NQ0`, found:585-592): enlarge `S` to `S'`
+/-- NQ0 (SOL-LEAD; RETIER `qs_canonical_family_NQ0`): enlarge `S` to `S'`
 (primes over 6, the different, class-group generators; `O_{S'}` a PID), build the canonical
 allowed family `Ξ_c = κ_{a_c}^3` on squarefree `S'`-exterior ideals with ray modulus supported
 on `S'`, trivial ray factor, exact conductors `c s_c`, `s_c ∣ qS ≠ ⊥`, exact product conductor
@@ -197,7 +194,7 @@ theorem qs_core_symbol_bound_NQ0a (S' : Finset (HeightOneSpectrum (𝓞 K)))
 
 set_option maxHeartbeats 800000 in
 open Classical in
-/-- NQ1 (IMPL; found:593-598): arbitrary integral representatives and the smaller set `S`.
+/-- NQ1 (IMPL): arbitrary integral representatives and the smaller set `S`.
 Split rows and columns by their (finitely many) intersections with `S' \ S` (deletion is
 injective and lowers norms; the deleted symbols are diagonal twists in `{0, ±1}`), and columns
 by the class of `gen T / gen₀ (T \ S')` in the finite group `U_{S'}/U_{S'}²` (a row twist of
@@ -720,9 +717,7 @@ private theorem qs_residue_ne_zero_of_not_mem_NQ2 (v : ArtinPrimitiveRoots.A1.Fi
   intro hz
   exact ha (Ideal.Quotient.eq_zero_iff_mem.mp hz)
 
-/-- NQ2 (IMPL; consumer helper for `lem_reflection_quadratic_sieve`, found:599-602 and
-`runs/lanes/sol-thin-a2rp/PROOFS.md:374-382`; schema `IntegralSquareClearing` in
-`runs/lanes/sol-thin-a2rp/wt/ArtinPrimitiveRoots/Review/sol-thin-a2rp/Schemas.lean:23-28`):
+/-- NQ2 (IMPL; consumer helper for `lem_reflection_quadratic_sieve`):
 an `S`-integer becomes integral after multiplying by the square of an integer supported on `S`
 (class-group finiteness: a power of each prime of `S` is principal). -/
 theorem qs_integralize_generators_NQ2 {CE : ℕ} {condη : Ideal (𝓞 K)}

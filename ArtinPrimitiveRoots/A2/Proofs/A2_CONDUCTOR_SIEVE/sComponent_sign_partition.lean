@@ -11,7 +11,7 @@ variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- The infinite image of a finite-order family has at most 2^r1 elements;
 partition by exact finite/infinite components, and recover the common supported-S
-ideal weight with modulus at most one. Guide: sol-thin-a2zf/PROOFS.md:658–665.
+ideal weight with modulus at most one.
 Uses finite-order triviality on connected archimedean units; feeds assembly. -/
 theorem sComponent_sign_partition (S : A1.SData F CE condη)
     (𝓛S : Finset (SLocalCharacter S)) (𝓧 : Finset (A1.HeckeChar F))

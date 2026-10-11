@@ -38,9 +38,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.ExponentSix
 /-!
 # A1 interface, §3: Hilbert symbols, H_S, B, allowed generators
 
-Frozen interface of part A1 (paper §§2, 2a, 3, App. 10). Each `sorry` is owned by a package of
-`research/design/A1-DESIGN.md` §3, named in its docstring. Design: `research/design/A1-Interface.lean`
-(Opus A1 sub-agent, 2026-10-07).
+Frozen interface of part A1 (paper §§2, 2a, 3, App. 10).
 -/
 
 set_option autoImplicit false

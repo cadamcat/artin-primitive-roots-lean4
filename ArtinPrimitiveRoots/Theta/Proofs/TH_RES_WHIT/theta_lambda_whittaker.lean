@@ -22,7 +22,6 @@ variable {P : CoverPackage D S H A} {G : GlobalDatum P}
 
 /-- A descended residue functional is Whittaker on the theta space. Translate generators,
 commute the local root past g, apply residue equivariance, and extend by span induction.
-Guide: sol-thin-thglobal/PROOFS.md:929–934.
 Uses: sectionSpace_family_spanning, analyticFamily_rtr, intertwine_rtr,
 ThetaResidueLaws.linearTranslate, ThetaResidueLaws.fourierCoeff, ThetaResidueLaws.equiv, CoverPackage.emb_n.
 Feeds: theta_exterior_whittaker. -/

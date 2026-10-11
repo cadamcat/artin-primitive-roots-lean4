@@ -12,7 +12,7 @@ namespace ArtinPrimitiveRoots.Hecke
 variable {K : Type*} [Field K] [NumberField K]
 
 /-- Finite Fourier expansion followed by the translated anisotropic Gaussian Poisson theorem.
-The full theta keeps the zero point at q=1. Guide: sol-thin-hk2/PROOFS.md:1359–1408.
+The full theta keeps the zero point at q=1.
 Uses hk_point_ideal_integral, residue principal values, trace-value/ideal_eq of T and H1 Poisson;
 the complex-place dual weights are 4/c, not 1/c. -/
 theorem hk_weighted_gaussian_poisson [IsTotallyComplex K] {m : RayClassModulus K}

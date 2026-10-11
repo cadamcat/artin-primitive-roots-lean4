@@ -29,7 +29,7 @@ def frequencyStableValue {A : AddCharData F} (W : LocalGaussianData A)
 /-- Pass the actual finite Gaussian integrals through a compact frequency integral.
 Character regularity and the norm Jacobian remain explicit. Stabilization gives the
 almost everywhere limit, and the uniform inverse-square-root estimate dominates it.
-Guide: PROOFS.md:468–475; this is the cutoff passage for the later Fourier support test. -/
+This is the cutoff passage for the later Fourier support test. -/
 theorem frequency_integral_tendsto_stable (A : AddCharData F)
     (W : LocalGaussianData A) (v : FinPlace F)
     (hregular : LocalCharacterRegular A v)

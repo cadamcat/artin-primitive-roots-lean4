@@ -156,7 +156,6 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
 
 /-- The reconstructed sums agree with the adelic series on the baseline ball, are analytic
 on the continuation domain, and have the prescribed scalar Laurent fields at every point.
-Guide: `runs/lanes/sol-thin-thglobal/PROOFS.md:809–812`.
 Uses component/reconstruction data, `Spec.ContinuedEisenstein.E_series`, its Banach-valued
 `E_analytic` and `laurent` at derivative order zero. Consumed by `exists_continuedEis`. -/
 theorem continuedEis_series_analytic {P : CoverPackage D S H A} {G : GlobalDatum P}

@@ -187,7 +187,6 @@ private theorem conductor_fixed_group_card_bound
 
 /-- Count conductor/residue pairs, then the finite/infinite local groups.
 The resulting quadratic count handles the frozen bottom-ideal coefficient.
-Guide: sol-thin-a2zf/PROOFS.md:742–747.
 Uses the residue bridge/injectivity, unit duality, and ideal norm counting. -/
 theorem conductor_family_card_bound (S : A1.SData F CE condη)
     (C₀ : ℝ) (hC₀ : 0 < C₀) (𝓛S : Finset (SLocalCharacter S)) :

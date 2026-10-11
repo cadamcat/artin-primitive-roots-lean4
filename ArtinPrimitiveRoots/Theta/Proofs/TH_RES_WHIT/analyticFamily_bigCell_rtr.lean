@@ -457,7 +457,6 @@ private theorem jacquet_analytic_from_trunc {v : FinPlace F} (L : FinLocalCover 
 /-- Insert a place and replace its section by a translated compactly supported big-cell
 family, preserving all other sections. This supplies the M/J analyticity and uniform level
 needed by family spanning and residue coordinates.
-Guide: sol-thin-thglobal/PROOFS.md:915–922,1007–1010.
 Uses: bigCell_isSection, intertwine_bigCell_analytic, jacquet_stable, IsSection.rtr.
 Feeds: sectionSpace_family_spanning and thetaWhit_section_multilinear. -/
 theorem analyticFamily_bigCell_rtr (Fam : AnalyticFamily P G μ) (v0 : FinPlace F)

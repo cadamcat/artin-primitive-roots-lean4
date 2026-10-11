@@ -12,17 +12,17 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- Actual exterior ideals of norm at most X; no finiteness claim is hidden in ncard.
-Guide: sol-thin-a2rp/PROOFS.md:42–49. Uses Ideal.finite_setOfPred_absNorm_le. -/
+Uses Ideal.finite_setOfPred_absNorm_le. -/
 def bridgeNormFinset (S : SData F CE condη) (X : ℝ) : Finset S.ExtIdeal :=
   (Ideal.finite_setOfPred_absNorm_le (S := 𝓞 F) ⌊X⌋₊).toFinset.subtype S.IsExterior
 
 /-- Finite Euclidean norm on an actual finite index set.
-Guide: sol-thin-a2rp/PROOFS.md:67–68. Uses no other bridge. -/
+Uses no other bridge. -/
 def bridgeL2 {α : Type*} (T : Finset α) (f : α → ℂ) : ℝ :=
   Real.sqrt (∑ i ∈ T, ‖f i‖ ^ 2)
 
 /-- Unit part of a positive norm sheet, with the inherited measurable structure.
-Guide: sol-thin-a2rp/PROOFS.md:50–54. Uses S.absS. -/
+Uses S.absS. -/
 def BridgeSheet (S : SData F CE condη) (l : ℝ) :=
   {y : S.FSˣ // S.absS (y : S.FS) = l}
 
@@ -34,19 +34,19 @@ instance bridgeSheetMeasurableSpace (S : SData F CE condη) (l : ℝ) :
 
 /-- The actual prime residue field. Instances are local to these definitions;
 we do not install competing global field instances.
-Guide: sol-thin-a2rp/PROOFS.md:63–64. -/
+-/
 def bridgeResidueField (v : FinPlace F) : Field (𝓞 F ⧸ v.asIdeal) := by
   letI : v.asIdeal.IsMaximal := v.isMaximal
   exact Ideal.Quotient.field v.asIdeal
 
 /-- Enumeration of the actual nonzero-prime quotient.
-Guide: sol-thin-a2rp/PROOFS.md:63–64. Uses Ring.HasFiniteQuotients.finiteQuotient. -/
+Uses Ring.HasFiniteQuotients.finiteQuotient. -/
 def bridgeResidueFintype (v : FinPlace F) : Fintype (𝓞 F ⧸ v.asIdeal) := by
   letI : Finite (𝓞 F ⧸ v.asIdeal) := Ring.HasFiniteQuotients.finiteQuotient v.ne_bot
   exact Fintype.ofFinite _
 
 /-- SYMBOL contract: valuation-ring residues, the actual masked symbol, and actual localChi.
-Guide: sol-thin-a2rp/PROOFS.md:32–41. Uses A1.Residue and Theta.Shared.localChi_basic.
+Uses A1.Residue and Theta.Shared.localChi_basic.
 No formula replaces chiIdealPow by an unmasked power. -/
 structure SymbolBridge (D : FieldData F) (S : SData F CE condη) : Prop where
   residue_algebraMap : ∀ (v : FinPlace F) (a : 𝓞 F),

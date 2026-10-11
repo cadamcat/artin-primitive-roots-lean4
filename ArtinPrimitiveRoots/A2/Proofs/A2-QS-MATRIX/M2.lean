@@ -5,7 +5,7 @@ import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MOBIUS».S0Slice
 /-!
 # A2-QS-MATRIX, part M2: the initial exponent `HasExponent 2`
 
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:327-328`.  Smooth Gram expansion of
+Smooth Gram expansion of
 `Σ_a W(N a/M) |Σ_c z_c χ_c(a)|²` (rows coprime to `m`, `qS`; `W ≥ 1` on `[0,1]` dominates the
 squarefree rows of norm `≤ M`), class slicing, gcd grouping (`qs_gcd_pair_identity_S0`):
 diagonal pairs cost `≪ M ‖z‖²`; a nonprincipal residual pair kernel is `≪ √N f (N𝔮 N f)^η`

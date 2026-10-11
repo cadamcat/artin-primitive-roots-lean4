@@ -21,7 +21,6 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
   {H : HilbertData F} {A : AddCharData F}
 
 /-- Choose one nonzero period ideal and bounded measurable fundamental domain for all points of a compact set in the canonical restricted-product quotient.
-Guide: sol-thin-thglobal/PROOFS.md:1211–1224.
 Uses HasRestrictedProductTopology, CoverPackage.q_quotient, uniform common-family finite level and finite compact chart covers. -/
 theorem theta_uniform_adapted_lattice {P : CoverPackage D S H A}
     (hRP : HasRestrictedProductTopology P) {N : ThetaNormalizationInput P}

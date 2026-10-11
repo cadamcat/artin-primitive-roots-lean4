@@ -189,7 +189,7 @@ open subgroup `O_v` by `AddCharData.integral`, hence locally constant; `psiC` is
 unit norm, additivity, and nontriviality (e.g. `z = (0, Pi.single w₀ (1/8))` gives
 `psiC (1/8) = exp(-πi/2) = -i`; `InfinitePlace F` is nonempty).
 
-Guide: lane `a1-poisson-opus` STATEMENTS.md (abstract route); compare the private
+Compare the private
 `globalAddChar_continuous` in `A2/Proofs/A2_WEIGHTS/Exist.lean:314` (copy, do not import).
 Used by: `a1_fourier_orthogonality`, `a1_fourier_uniqueness`, `a1_fourier_poisson_abstract`. -/
 theorem a1_fourier_e_basic (S : SData F CE condη) (A : AddCharData F) :

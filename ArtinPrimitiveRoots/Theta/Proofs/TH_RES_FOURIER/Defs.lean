@@ -11,7 +11,7 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
   {H : HilbertData F} {A : AddCharData F}
 
 /-- The existing family hypotheses used by residue Fourier arguments, bundled without
-introducing new section data. Guide: sol-thin-thglobal/PROOFS.md:835–882.
+introducing new section data.
 Uses GlobalSection, and is supplied by the fields of the frozen AnalyticFamily. -/
 structure FourierFamilyHyp {P : CoverPackage D S H A} {G : GlobalDatum P}
     (μ : ∀ v : FinPlace F, LocHaar v) (sec : ∀ s : ℂ, GlobalSection P G s)
@@ -28,7 +28,7 @@ structure FourierFamilyHyp {P : CoverPackage D S H A} {G : GlobalDatum P}
     ∀ s g, ∀ k ∈ (P.loc v).Kc m, (sec s).f v (g * k) = (sec s).f v g
 
 /-- The continuation fields needed here, extracted from the frozen ContinuedEis.
-Guide: sol-thin-thglobal/PROOFS.md:835–882. Uses no package theorem. -/
+Uses no package theorem. -/
 structure FourierResidueData {P : CoverPackage D S H A} {G : GlobalDatum P}
     (sec : ∀ s : ℂ, GlobalSection P G s) where
   ε : ℝ
@@ -50,7 +50,7 @@ structure FourierResidueData {P : CoverPackage D S H A} {G : GlobalDatum P}
       Ψ s = (s - 1 / 6) * torusCoeff P (E s) g Pd ν
 
 /-- Uniform fixation by the finite translations of an ideal at g.
-Guide: sol-thin-thglobal/PROOFS.md:851–855. Uses scalarOf and nFin. -/
+Uses scalarOf and nFin. -/
 def FourierIdealFix {P : CoverPackage D S H A} {G : GlobalDatum P}
     (sec : ∀ s : ℂ, GlobalSection P G s) (g : P.tc.G)
     (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) : Prop :=
@@ -59,7 +59,7 @@ def FourierIdealFix {P : CoverPackage D S H A} {G : GlobalDatum P}
       scalarOf P G (sec s).f (sec s).fC h
 
 /-- The exact adapted-domain predicate in the frozen thetaWhit definition.
-Guide: sol-thin-thglobal/PROOFS.md:851–861. Uses FourierIdealFix. -/
+Uses FourierIdealFix. -/
 def FourierAdaptedDomain {P : CoverPackage D S H A} {G : GlobalDatum P}
     (sec : ∀ s : ℂ, GlobalSection P G s) (g : P.tc.G)
     (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
@@ -70,7 +70,7 @@ def FourierAdaptedDomain {P : CoverPackage D S H A} {G : GlobalDatum P}
     ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), psiInf ν (infEmbA ξ) = 1
 
 /-- Choice of the first residue coefficient, with exactly thetaWhit's choice predicate.
-Guide: sol-thin-thglobal/PROOFS.md:851–861. Uses FourierAdaptedDomain. -/
+Uses FourierAdaptedDomain. -/
 def fourierFirstCoeff {P : CoverPackage D S H A} {G : GlobalDatum P}
     {sec : ∀ s : ℂ, GlobalSection P G s} (R : FourierResidueData sec) (g : P.tc.G) : ℂ :=
   if h : ∃ (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
@@ -78,7 +78,7 @@ def fourierFirstCoeff {P : CoverPackage D S H A} {G : GlobalDatum P}
   then torusCoeff P R.theta g h.choose_spec.choose 1 else 0
 
 /-- The intertwined scalar with the cprod and kappa factors removed.
-Guide: sol-thin-thglobal/PROOFS.md:835–845. Uses the same local vectors as scalarM. -/
+Uses the same local vectors as scalarM. -/
 def fourierRawM {P : CoverPackage D S H A} {G : GlobalDatum P}
     (μ : ∀ v : FinPlace F, LocHaar v) (sec : ∀ s : ℂ, GlobalSection P G s)
     (s : ℂ) (g : P.tc.G) : ℂ :=
@@ -88,7 +88,7 @@ def fourierRawM {P : CoverPackage D S H A} {G : GlobalDatum P}
     (fun w => intertwineC ((sec s).fC w)) g
 
 /-- Entire numerator and nonvanishing denominator underlying the Euler-product ratio.
-Guide: sol-thin-thglobal/PROOFS.md:843–845. Supplied in Res from the existing Hecke/zeta helpers. -/
+Supplied in Res from the existing Hecke/zeta helpers. -/
 def FourierEulerHyp (T0 : Finset (FinPlace F)) : Prop :=
   ∃ L N : ℂ → ℂ,
     AnalyticOnNhd ℂ L {s | 1 < s.re} ∧

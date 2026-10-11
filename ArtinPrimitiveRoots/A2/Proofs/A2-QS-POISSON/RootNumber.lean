@@ -6,9 +6,6 @@ import ArtinPrimitiveRoots.A2.Proofs.QS_ANALYTIC.RNRootOne
 /-!
 # A2-QS-POISSON, part RN: functional equation with root number `+1` for quadratic characters
 
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:350-358` (root number `+1`, not only modulus one;
-`RouteGates.unit_root_number_does_not_determine_sign`).
-
 FE source.  This part is stated directly in the form P1 consumes, against the raw ideal series
 `A2.heckeLSeries` (`A2/ZeroFree/Results.lean:47-50`), so it does not wait for the exact export
 names of the `hk-fe-lead` lane.  Its proof is expected to combine HK-FE (the Hecke functional

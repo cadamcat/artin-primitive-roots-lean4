@@ -9,7 +9,7 @@ namespace ArtinPrimitiveRoots.A1.Spec
 variable {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
 
 /-- Extend bounded test localizations over the closed energy graph and retain I compatibility.
-Guide: runs/lanes/sol-thin-spec/PROOFS.md:320. Uses localized_chart_H1_bound and
+Uses localized_chart_H1_bound and
 e.graph_eq. ExtendOfNorm on the dense graph gives the maps; test I identities extend
 by continuity. This lemma contains only completion and linear-map algebra. -/
 theorem localized_chart_extension

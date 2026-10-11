@@ -1,7 +1,7 @@
 import ArtinPrimitiveRoots.Construction.Proofs.c4.PairBlock
 
 /-! Uniform form of the pair block sieve and the pointwise survivor criterion for
-`con_rough_pairs` (PROOFS.md §13, steps 1 and 6). The block-sieve constant is chosen before all
+`con_rough_pairs`. The block-sieve constant is chosen before all
 sieve data, so that the leading constant of the rough-pair estimate is absolute. -/
 
 namespace ArtinPrimitiveRoots.Construction.Proofs.CRP

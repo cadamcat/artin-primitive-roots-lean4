@@ -23,7 +23,7 @@ private lemma bridgeL2_eq_norm {α : Type*} (T : Finset α)
     (Finset.sum_subtype T (fun _ => Iff.rfl) (fun i => ‖f i‖ ^ 2))
 
 /-- Finite Euclidean triangle inequality; it applies before squaring the norm.
-Guide: sol-thin-a2rp/PROOFS.md:67–68. Uses PiLp norm_sum_le. -/
+Uses PiLp norm_sum_le. -/
 theorem a2_bridge_FINITE_L2 {α β : Type*} (T : Finset α) (U : Finset β)
     (f : β → α → ℂ) :
     bridgeL2 T (fun i => ∑ j ∈ U, f j i) ≤ ∑ j ∈ U, bridgeL2 T (f j) := by
@@ -45,7 +45,7 @@ theorem a2_bridge_FINITE_L2 {α β : Type*} (T : Finset α) (U : Finset β)
       exact (bridgeL2_eq_norm T (f j)).symm
 
 /-- Finite-coordinate Bochner Minkowski bound, with actual integrability hypotheses.
-Guide: sol-thin-a2rp/PROOFS.md:67–68. Uses norm_integral_le_integral_norm in PiLp. -/
+Uses norm_integral_le_integral_norm in PiLp. -/
 theorem a2_bridge_FINITE_L2_integral {α Ω : Type*} [MeasurableSpace Ω]
     (T : Finset α) (ν : Measure Ω) (f : Ω → α → ℂ)
     (hf : ∀ i ∈ T, Integrable (fun x => f x i) ν) :
@@ -82,7 +82,7 @@ theorem a2_bridge_FINITE_L2_integral {α Ω : Type*} [MeasurableSpace Ω]
       _ = ∫ x, bridgeL2 T (f x) ∂ν := by rw [← hbridge]
 
 /-- Infinite outer sum in a complete finite-dimensional target.
-Guide: sol-thin-a2rp/PROOFS.md:67–68. Uses summable_norm_iff and norm_tsum_le. -/
+Uses summable_norm_iff and norm_tsum_le. -/
 theorem a2_bridge_FINITE_L2_tsum {α β : Type*} (T : Finset α) (f : β → α → ℂ)
     (hf : Summable (fun j => bridgeL2 T (f j))) :
     (∀ i ∈ T, Summable (fun j => f j i)) ∧

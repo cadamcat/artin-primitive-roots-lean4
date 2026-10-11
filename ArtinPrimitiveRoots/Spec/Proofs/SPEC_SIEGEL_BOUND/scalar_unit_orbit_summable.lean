@@ -92,7 +92,7 @@ private lemma scalar_rpow_compare (r β K P N M : ℝ)
       simp [div_eq_mul_inv]
 
 /-- Scalar norm weights converge on any family with distinct unit orbits for
-exponent greater than one. Guide: `sol-thin-spec/PROOFS.md:358`, scalar variant of
+exponent greater than one. Scalar variant of
 R5. Uses `R4_unit_balance` and Mathlib scalar lattice p-series; feeds
 `balanced_denominator_rows_bound`. The row theorem R5 alone has too large a threshold. -/
 theorem scalar_unit_orbit_summable (D : ℕ) (hD : 0 < D) (β : ℝ) (hβ : 1 < β)

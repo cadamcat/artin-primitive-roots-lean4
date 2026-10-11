@@ -4,7 +4,7 @@ import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».P1
 /-!
 # A2-QS-MOBIUS, part S1: squarefree removal with both principal terms retained
 
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:409-418` (lead's exact form).  For one coprime
+For one coprime
 equal-class residual pair `(c, d)`, `c d ≠ ⊤`, with `ψ = χ_c χ_d⁻¹` of exact conductor `f = c d`
 (`equalClass_product_conductor`) and the squarefree coprimality ideal `𝔮` coprime to `c d`:
 

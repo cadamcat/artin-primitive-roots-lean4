@@ -9,7 +9,7 @@ namespace ArtinPrimitiveRoots.Hecke
 variable {K : Type*} [Field K] [NumberField K]
 
 /-- The conductor-scaled weighted theta functional equation, in the half-weight convention
-consumed by the strong Mellin engine. Guide: sol-thin-hk2/PROOFS.md:1440–1476.
+consumed by the strong Mellin engine.
 Uses hk_weighted_class_sum_inversion; nontriviality removes the q=1 zero-point total in the
 Mellin comparison. Every argument here is positive. LEAD. -/
 theorem hk_weighted_theta_scalar_FE [IsTotallyComplex K] {m : RayClassModulus K}

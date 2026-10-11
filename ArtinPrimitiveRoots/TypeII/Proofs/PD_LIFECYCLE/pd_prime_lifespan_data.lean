@@ -10,7 +10,7 @@ open ArtinPrimitiveRoots.TypeII
 noncomputable section
 
 /-- The finite valid endpoint alternatives sum to the exact frozen lifespan expression.
-Guide runs/lanes/sol-thin-pdmem/PROOFS.md:402–417. Uses only Defs; feeds
+Uses only Defs; feeds
 pd_prime_lifespan_product and history_path_value. No band or positivity assumption is needed. -/
 theorem pd_prime_lifespan_data {K : ℕ} (F : PDFix K) (S : PDScale)
     (γ : EnvPath S.x K) (p : ℕ) :
@@ -341,7 +341,7 @@ theorem pd_prime_lifespan_data {K : ℕ} (F : PDFix K) (S : PDScale)
           rw [Finset.mul_sum]
 
 /-- Distribute the finite per-prime sums and remove the group tags using disjoint bands.
-Guide runs/lanes/sol-thin-pdmem/PROOFS.md:402–417,449. Uses
+Uses
 pd_prime_lifespan_data and pd_lifecycle_parameters; feeds history_path_value. -/
 theorem pd_prime_lifespan_product (K : ℕ) (F : PDFix K) (hF : F.Valid) :
     ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ S : PDScale, x₀ ≤ S.x → ∀ γ : EnvPath S.x K,

@@ -17,7 +17,7 @@ variable {F : Type} [Field F] [NumberField F]
 /-- Identify the supplied finite characters with the local trace of a rational
 character family satisfying its global product formula. Keep the completion trace
 comparison while proving global compatibility of the constructed family, then use
-character uniqueness. Guide: PROOFS.md:480–485; the finite-support reindexing follows
+character uniqueness. The finite-support reindexing follows
 A1-ADDITIVE/IntegralGlobalCharacters.lean. -/
 theorem finite_trace_character_comparison (A : AddCharData F)
     (θ : (v : FinPlace ℚ) → AddChar (v.adicCompletion ℚ) ℂ)

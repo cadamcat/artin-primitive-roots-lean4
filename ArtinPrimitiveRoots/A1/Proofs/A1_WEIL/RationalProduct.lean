@@ -1269,7 +1269,7 @@ private theorem rational_phase_supplement_table (s : ℤ) (n e : ℕ)
       simp [Complex.I_sq, hsqrtSq] <;> ring_nf
 
 /-- Rational one-dimensional product formula for the explicit local phases.
-Guide: PROOFS.md:482–485. Uses: jacobiSym quadratic reciprocity and supplements; rational numerator/denominator factorization. -/
+Uses: jacobiSym quadratic reciprocity and supplements; rational numerator/denominator factorization. -/
 theorem rational_phase_product (a : ℚˣ) :
     (Function.mulSupport fun p : Nat.Primes => rationalPrimePhase p a).Finite ∧
     (∏ᶠ p : Nat.Primes, rationalPrimePhase p a) * rationalArchPhase a = 1 := by

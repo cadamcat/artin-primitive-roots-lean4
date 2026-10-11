@@ -213,7 +213,7 @@ private lemma pdLifeEdge_sdiff_card {K : ℕ} (F : PDFix K) (S : PDScale)
       omega
 
 /-- On a nonzero path each group has M initial runs and exactly one new run per edge.
-Guide runs/lanes/sol-thin-pdmem/PROOFS.md:434–449. Uses the support of symKernel,
+Uses the support of symKernel,
 IsSlotTransition and disjoint bands; feeds pd_history_scalar_charge and the active count
 in pd_doubled_lifespan_bound. Odd edges give the same undirected set transition. -/
 theorem pd_active_run_count (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :

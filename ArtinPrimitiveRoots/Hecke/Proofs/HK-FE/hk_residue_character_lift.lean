@@ -429,8 +429,8 @@ private theorem hkResidueUnitsHom_principal_value [IsTotallyComplex K] (m : RayC
   exact congrArg ψ hclass
 
 
-/-- Construct a residue character by prime-to integral lifts. Guide:
-sol-thin-hk2/PROOFS.md:1209–1230. Uses H1's residue/congruence bridge and MulChar.ofUnitHom;
+/-- Construct a residue character by prime-to integral lifts.
+Uses H1's residue/congruence bridge and MulChar.ofUnitHom;
 at the unit ideal choose the integral lift 1 explicitly. -/
 theorem hk_residue_character_lift [IsTotallyComplex K] {m : RayClassModulus K}
     (ψ : RayClassGroup m →* ℂˣ) :

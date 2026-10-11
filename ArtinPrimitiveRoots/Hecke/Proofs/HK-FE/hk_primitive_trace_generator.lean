@@ -95,7 +95,7 @@ private theorem hk_exists_integral_primeTo_principal_mul
     exact ⟨y, J, hcop, by simpa [P] using hunit⟩
 
 /-- CRT generator of the inverse conductor times codifferent, with exact conductor-prime
-orders recorded by coprimality of B. Guide: sol-thin-hk2/PROOFS.md:1261–1281.
+orders recorded by coprimality of B.
 Uses CRT in an invertible ideal after clearing one denominator; neither M nor the different
 is assumed principal. -/
 theorem hk_primitive_trace_generator [IsTotallyComplex K] (m : RayClassModulus K) :

@@ -6,8 +6,7 @@ import ArtinPrimitiveRoots.Hecke.Elementary.EulerProduct.Algebra
 /-!
 # A2-QS-MOBIUS, part S0: multiplicativity, class/dyad slicing, gcd expansion and descent
 
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:396-408` (S0) and G1 (found:613-615) specialised to
-trivial ray factor.  The family identities are derived prime by prime from `reciprocity`
+The family identities are derived prime by prime from `reciprocity`
 (trivial factor), `idealValue` multiplicativity (`qs_idealValue_mul_M0`) and ramification at the
 primitive conductor (`qs_idealValue_eq_zero_of_conductor_M0`); rows are coprime to `m` and `qS`.
 -/
@@ -2621,7 +2620,7 @@ private theorem qs_high_energy_nonneg (F : QSFamily m qS) (W : ℝ → ℝ)
   exact h
 
 open Classical in
-/-- S0 (IMPL): gcd descent (found:405-412).  Blocks with `N g > G` recombine, by Möbius
+/-- S0 (IMPL): gcd descent.  Blocks with `N g > G` recombine, by Möbius
 inversion on the divisor lattice and multiplicativity, into high-core energies of shifted
 vectors at column length `≤ 2N/G`; the divisor multiplicities cost `N^η`. -/
 theorem qs_gcd_descent_S0 (F : QSFamily m qS) (hrf : ∀ g h, F.rayFactor g h = 1)

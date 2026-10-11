@@ -1186,7 +1186,7 @@ theorem intervalTerms_mem_iff (l r : ℝ) (m : ℕ) :
   rw [Finset.mem_filter, Finset.mem_range, Nat.lt_succ_iff]
   tauto
 
-/-- Dyadic-box product bound from PROOFS.md §5: a box meeting `[l,r] ⊆ [M,2M]`
+/-- Dyadic-box product bound: a box meeting `[l,r] ⊆ [M,2M]`
 has `M/2^j ≤ ∏ P_i ≤ 2M`. -/
 theorem box_product_bound {j : ℕ} (P y : Fin j → ℝ) (M : ℝ) (hM : 0 < M)
     (hP : ∀ i, 0 < P i) (hy : ∀ i, P i ≤ y i ∧ y i < 2 * P i)

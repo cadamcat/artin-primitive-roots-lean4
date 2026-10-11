@@ -85,7 +85,7 @@ private theorem conductorSupported_count_le_log (S : A1.SData F CE condη)
   exact Nat.le_log_of_pow_le (by norm_num) (hbase.trans hN)
 
 /-- Exact supported/exterior factorization, uniqueness, norm bounds, logarithmic
-count, and square-mass partition. Guide: sol-thin-a2zf/PROOFS.md:652–657.
+count, and square-mass partition.
 Uses the normalized ideal factorization API; feeds conductor_sieve_assemble and the bridge. -/
 theorem ideal_S_exterior_split_count (S : A1.SData F CE condη) :
     (∀ I : Ideal (𝓞 F), I ≠ ⊥ →

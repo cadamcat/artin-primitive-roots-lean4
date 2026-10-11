@@ -4,14 +4,12 @@ import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-CANCEL».C2u
 /-!
 # A2-QS-CANCEL, part C2: divisor-pair Cauchy–Schwarz with separated smooth arguments
 
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:459-472` (the common pair tool).
-
 Shape.  For coprime column pairs `(c, d)` (columns of norm `≤ 2n`), divisors `e₁ ∣ c`, `e₂ ∣ d`
 in norm dyads `(D₁, 2D₁]`, `(D₂, 2D₂]`, rows `a` (squarefree admissible, norm `≤ 2B`) and a
 row twist `|ρ| ≤ 1`, the weight `Φ(N a, N(e₁e₂), N(cd))` may depend on the product of the
 column norms only through a mixture `∫ x^{it} φ(y,u,t) dμ(t)` over a finite measure `μ`
 (`μ` a Dirac mass covers weights independent of `x`; `μ = ` Lebesgue with a density covers the
-inverse Mellin separation of found:466-470).  Proof: Fubini over `t`; `N(cd)^{it}` is a diagonal
+inverse Mellin separation).  Proof: Fubini over `t`; `N(cd)^{it}` is a diagonal
 twist of modulus one; remove `(c,d) = 1` by Möbius over `k ∣ (c,d)`; reindex `c = lcm(k,e₁) c'`
 using `qs_family_mul_S0`; Cauchy–Schwarz in the rows; `qs_energy_le_norm_M0`; monotonicity;
 divisor multiplicities by `qs_divisor_bound_M1` and `qs_ideal_count_M1`.

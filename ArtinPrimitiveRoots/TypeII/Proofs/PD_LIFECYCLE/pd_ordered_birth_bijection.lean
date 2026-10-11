@@ -60,7 +60,7 @@ noncomputable section
 Batch orderings cancel each local ghost factorial; unique old indices give no factorial.
 Active symmetrizations and raw-minus-comparison choices give the signed pathCoefficient
 before any norm is taken. The normalization is nonzero at this threshold.
-Guide runs/lanes/sol-thin-pdmem/PROOFS.md:386–433,447–449,454–473. Uses finite distinct
+Uses finite distinct
 history support, projective-line transport and ordered_distinct_batch_sum; feeds
 history_path_value and pd_truncation_choice_majorant. Defs records literal raw charges;
 pd_history_scalar_charge is applied by consumers, not assumed by this bijection. -/

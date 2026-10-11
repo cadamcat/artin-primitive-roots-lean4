@@ -10,7 +10,7 @@ namespace ArtinPrimitiveRoots.A1.Spec
 variable {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
 
 /-- Periodization and cutoff reconstruction give mass domination by the chart L² norm.
-Guide: runs/lanes/sol-thin-spec/PROOFS.md:321-322. Uses T1 compact overlaps and
+Uses T1 compact overlaps and
 unfolding, T2's locally finite partition, G3_volume, and calibrated test representatives.
 Cauchy-Schwarz gives the finite-overlap bound; positive compact chart density compares
 Lebesgue and hyperbolic norms. Only this norm estimate is needed by the compact assembly. -/

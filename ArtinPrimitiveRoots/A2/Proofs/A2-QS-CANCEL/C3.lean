@@ -21,8 +21,7 @@ import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-CANCEL».C3.Main
 /-!
 # A2-QS-CANCEL, part C3: the remainder terms of the error tuple
 
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:499-550` (table of prefactors and divisor-product
-conditions; estimate (E); the per-term substitutions).  Common method: split rows `a₀` into
+Common method: split rows `a₀` into
 dyads `(B, 2B]`, `B ≤ κ`, the divisors `e ∣ 𝔮 f` into `e_𝔮 e₁ e₂` with `e₁ ∣ c`, `e₂ ∣ d` in
 dyads `(D₁,2D₁]`, `(D₂,2D₂]`; apply `qs_divisor_pair_cauchy_C2`; bound
 `B1(2B, 2n/D_i) = B1(2n/D_i, 2B)` (`qs_norm_symm_M0`) by `HasExponent α`; sum the dyads
@@ -33,7 +32,7 @@ Original pieces (`E₄` highDiv, `E₀` res, `E₅` trans): no dependence on `N(
 the divisor; Dirac `μ`.  Dual pieces (`E₁` highDiv, `E₂` res): `M/(N e √N(cd)) · Z` does not
 depend on `N(cd)`; `E₂` carries `N(cd)^{-1/2}`.  Dual transition `E₃`: the weight depends on
 `N(cd)` through `Z = √(N e N(cd)/(M N a₀))` inside `T(TW∘sq)`; smooth dyadic cutoff in `N(cd)`
-and inverse Mellin with a majorant from `qs_transform_bounds_P0` (found:466-470).
+and inverse Mellin with a majorant from `qs_transform_bounds_P0`.
 Tails: rapid decay (`qs_transform_bounds_P0`, `qs_tail_bound_M1`) with a large exponent `A`
 chosen after the polynomial losses; the dual high-core tail needs the margin
 `N𝔮 n² (M n)^θ ≤ κ M` (in the optimized range `κ M = N² P^η'`, `n = N/N g`).

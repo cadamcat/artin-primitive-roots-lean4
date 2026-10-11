@@ -119,7 +119,6 @@ private theorem continuedEis_residueBall_pos_here {ε : ℝ} (hε : ε ≤ 1 / 1
 Banach-valued Laurent field back along the fixed torus chart on closure(Pd), form the finite
 analytic sum with the coefficient functions, and apply the continuous linear weighted
 integral. The statement includes zero-volume sets and needs no period-lattice hypothesis.
-Guide: `runs/lanes/sol-thin-thglobal/PROOFS.md:812–823`.
 Uses `ContinuedEisTorusCharts` (produced by `continuedEis_torus_charts`), component data,
 and `Spec.ContinuedEisenstein.laurent`; no pointwise limit interchange.
 Consumed by frozen `exists_continuedEis`. LEAD part. -/

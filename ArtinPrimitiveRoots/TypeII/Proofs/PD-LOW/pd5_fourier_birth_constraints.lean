@@ -8,7 +8,7 @@ open ArtinPrimitiveRoots.TypeII
 noncomputable section
 
 /-- Exact finite Fourier constraint expansion, reusing pd5b's performed-address encoding.
-Guide `runs/lanes/sol-thin-pd5/PROOFS.md:537–611`; uses pd5b_memHistory_constraint_fourier;
+Uses pd5b_memHistory_constraint_fourier;
 feeds phase attachment and frozen history_rank_low. -/
 theorem pd5_fourier_birth_constraints {K T : ℕ} [NeZero T]
     (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot) (B : ℕ)

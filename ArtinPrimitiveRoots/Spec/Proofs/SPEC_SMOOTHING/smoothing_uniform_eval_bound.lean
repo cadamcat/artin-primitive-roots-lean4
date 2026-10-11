@@ -32,7 +32,7 @@ private noncomputable def smoothingEvalDirCLM (n : ℕ) (v : Fin n → Coord F) 
 
 /-- Every fixed derivative evaluation on a compact coordinate set defines a bounded continuous
 linear map, with its local L1/Cauchy–Schwarz bound. Constants are independent of the L2 vector.
-Guide: `sol-thin-spec/PROOFS.md:406`. Uses `radialKernel_compact_control`,
+Uses `radialKernel_compact_control`,
 `param_deriv_integral_formula`, `localLiftCLM`, and frozen `G3_volume` and `T1_l2`.
 Supplies the derivative-map conjunct of frozen `S1_smoothing` and generic maps for S3. -/
 theorem smoothing_uniform_eval_bound (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]

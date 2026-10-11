@@ -358,7 +358,7 @@ private theorem pd5_int_abs_mem_Icc (X : ℝ) (t : ℤ)
 
 /-- Uniform position sum before any label choices are integrated. Source primitivity, its
 box and determinant divisibility remain in the hypotheses/guard; both multiplier parts and
-both directions are included. Guide `runs/lanes/sol-thin-pd5/PROOFS.md:245–311`; uses
+both directions are included. Uses
 pd5_majorKernel_volume_bound, a fixed-number determinant-line count and compact cutoff bounds.
 Feeds positive prescribed edge rows and low-rank positive edge envelopes. -/
 theorem pd5_edge_position_mass_le (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁)

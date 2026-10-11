@@ -1094,7 +1094,6 @@ private theorem jacquetC_rightRoot_derivative (m : ℤ) (h : PGL2 ℂ) :
           simp [jacquetC, rtr, mul_assoc]
 
 /-- Differentiate the actual residue coefficient at a lift with identity exterior components; retain the finite multilinear form for the Weyl-sheet proof.
-Guide: sol-thin-thglobal/PROOFS.md:1180–1199.
 Uses ThetaNormalizationInput.coefficient, ThetaCommonSections, joint root differentiation under torus integrals and jacquetC_derivative. -/
 theorem theta_complex_derivative_tensor {P : CoverPackage D S H A}
     {N : ThetaNormalizationInput P} {𝓛 : Finset (SChar S)}

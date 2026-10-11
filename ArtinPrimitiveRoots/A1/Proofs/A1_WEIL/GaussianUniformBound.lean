@@ -136,7 +136,7 @@ private theorem inverse_square_norm_factor (v : FinPlace F) (r c : (v.adicComple
 
 /-- A common inverse-square-root bound for every finite Gaussian truncation.
 Character modulus and the actual scalar measure Jacobian are explicit hypotheses.
-Guide: PROOFS.md:466–475. Finite square classes and the checked finite-ball rescaling
+Finite square classes and the checked finite-ball rescaling
 reduce all coefficients to finitely many uniformly bounded representative integrals. -/
 theorem uniform_quadratic_integral_norm_bound (A : AddCharData F) (W : LocalGaussianData A)
     (v : FinPlace F) (hchar : ∀ x, ‖A.ψ v x‖ ≤ 1)
@@ -323,7 +323,7 @@ private theorem inverse_sqrt_norm_integrableOn_closedBall (v : FinPlace F)
 /-- The inverse-square-root Gaussian bound is integrable on each integer-radius ball.
 The scalar Haar Jacobian remains explicit. Geometric metric annuli prove the local
 integrability needed for dominated convergence of the actual finite Gaussian integrals.
-Guide: PROOFS.md:468–475. -/
+-/
 theorem inverse_sqrt_norm_integrableOn_localBallInt (A : AddCharData F)
     (W : LocalGaussianData A) (v : FinPlace F)
     (hscale : ∀ c : (v.adicCompletion F)ˣ,
@@ -372,7 +372,7 @@ def localBallAddSubgroup (v : FinPlace F) (M : ℤ) : AddSubgroup (v.adicComplet
 
 /-- Orthogonality of the frozen additive character on each actual local ball.
 The value is its Haar mass when t↦ψ(t*z) is trivial on the ball, and zero otherwise.
-Guide: PROOFS.md:466–475; compactness and the native valuation supply the measurable
+Compactness and the native valuation supply the measurable
 additive subgroup needed by the generic orthogonality theorem. -/
 theorem local_ball_character_orthogonality (A : AddCharData F)
     (v : FinPlace F) (μ : Measure (v.adicCompletion F))
@@ -391,7 +391,7 @@ theorem local_ball_character_orthogonality (A : AddCharData F)
 /-- A finite Gaussian Fourier test is exactly a quadratic preimage measure.
 Both integration domains are compact, and character regularity gives product
 integrability before Fubini. The local-ball orthogonality identity then evaluates
-the inner character integral. Guide: PROOFS.md:468–475. -/
+the inner character integral. -/
 theorem finite_gaussian_fourier_test (A : AddCharData F) (v : FinPlace F)
     (μ : Measure (v.adicCompletion F)) (hμ : Measure.IsAddHaarMeasure μ)
     (hregular : LocalCharacterRegular A v)
@@ -476,7 +476,7 @@ def localBallAnnihilator (A : AddCharData F) (v : FinPlace F) (M : ℤ) :
 /-- Enlarging the frequency ball makes its character annihilator arbitrarily small.
 Integrality retains the opposite-radius ball inside the annihilator. A witness
 to nontriviality excludes every z whose norm is at least r by testing at y/z.
-Guide: PROOFS.md:468–475; this geometry needs neither continuity nor Haar measure. -/
+This geometry needs neither continuity nor Haar measure. -/
 theorem local_ball_annihilator_small (A : AddCharData F) (v : FinPlace F)
     (hψ : A.ψ v ≠ 1) (r : ℝ) (hr : 0 < r) :
     ∃ M : ℤ, localBallInt v (-M) ⊆ localBallAnnihilator A v M ∧

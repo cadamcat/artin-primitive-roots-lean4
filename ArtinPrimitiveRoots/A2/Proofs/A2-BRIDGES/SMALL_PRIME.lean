@@ -38,7 +38,7 @@ private lemma bridge_finite_places_norm_le (Q : ℝ) (hQ : 0 ≤ Q) :
     exact HeightOneSpectrum.ext h
 
 /-- Uniform fixed-base product over any finite prime set.
-Guide: sol-thin-a2rp/PROOFS.md:65–66. Uses COUNT_finite and ideal norm finiteness. -/
+Uses COUNT_finite and ideal norm finiteness. -/
 theorem a2_bridge_SMALL_PRIME (B : ℝ) (hB : 1 < B) (ε : ℝ) (hε : 0 < ε) :
     ∃ C : ℝ, 1 ≤ C ∧ ∀ T : Finset (FinPlace F),
       (∏ _v ∈ T, B) ≤ C * Real.rpow (∏ v ∈ T, idealNorm v.asIdeal) ε := by
@@ -121,7 +121,7 @@ theorem a2_bridge_SMALL_PRIME (B : ℝ) (hB : 1 < B) (ε : ℝ) (hε : 0 < ε) :
           (by intro v hv; exact (bridge_prime_norm_pos v).le) ε
 
 /-- Uniform decaying-factor product; constants precede the growing prime set.
-Guide: sol-thin-a2rp/PROOFS.md:65–66. Uses SMALL_PRIME and threshold splitting. -/
+Uses SMALL_PRIME and threshold splitting. -/
 theorem a2_bridge_SMALL_PRIME_decay (B δ : ℝ) (hB : 0 ≤ B) (hδ : 0 < δ)
     (ε : ℝ) (hε : 0 < ε) :
     ∃ C : ℝ, 1 ≤ C ∧ ∀ T : Finset (FinPlace F),

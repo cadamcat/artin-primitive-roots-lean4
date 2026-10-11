@@ -173,7 +173,7 @@ private theorem pd5_majorArc_volume_bound (x Y A₀ : ℝ)
     _ = 32 * T ^ 3 / Y := by ring
 
 /-- Elementary major-arc volume bound, retaining the actual integer-lift definition and
-finite interval integral. Guide `runs/lanes/sol-thin-pd5/PROOFS.md:280–302`; uses measurable
+finite interval integral. Uses measurable
 countable unions of closed intervals, at most 4k centres for each denominator k, and the
 unit norm of additiveCharacter. Feeds pd5_edge_position_mass_le and positive edge rows. -/
 theorem pd5_majorKernel_volume_bound (x Y A₀ P t : ℝ) (a b : ℕ) (psi : ℝ → ℝ)

@@ -14,7 +14,7 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- A1-LAMBDA IMPL: Use existing cubic_character_norm_transport and residue_cubic_readout_exists. Align OAI cubicChar_reduce along residueMap with the common D.σ0 root readout; hι aligns omega.
-Guide: sol-thin-a1/PROOFS.md:428-446. Uses: BasePrimeGood, NormTransport. -/
+Uses: BasePrimeGood, NormTransport. -/
 theorem cubic_residue_character_norm_transport (D : FieldData F)
     (S : SData F CE condη) (ι : E →ₐ[ℚ] F)
     (hι : ι (algebraMap OE E omega) = D.ζ12 ^ 4)

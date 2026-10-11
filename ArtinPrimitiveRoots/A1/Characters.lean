@@ -14,9 +14,7 @@ import TauCeti.RingTheory.DedekindDomain.AdicValuation.Completion
 /-!
 # A1 interface, §5: Hecke, Kummer, class and Gauss correction characters
 
-Frozen interface of part A1 (paper §§2, 2a, 3, App. 10). Each `sorry` is owned by a package of
-`research/design/A1-DESIGN.md` §3, named in its docstring. Design: `research/design/A1-Interface.lean`
-(Opus A1 sub-agent, 2026-10-07).
+Frozen interface of part A1 (paper §§2, 2a, 3, App. 10).
 -/
 
 set_option autoImplicit false
@@ -80,8 +78,7 @@ def idealExp (v : FinPlace F) (I : Ideal (𝓞 F)) : ℕ :=
 
 /-- A modulus bound for the conductor: `χ` is trivial on the local units `u ≡ 1 mod 𝔭_v^{e_v(𝔪)}`
 at every finite `v` (for `e_v(𝔪) = 0`: on all local units); then the conductor divides `𝔪`.
-Corrected 2026-10-07: the first version quantified `∀ x ∈ 𝔪` and was vacuous at `x = 0`
-(A2 agent, `research/design/A2-ThetaCheck.lean`, `conductorDvd_vacuous`). -/
+Corrected 2026-10-07: the first version quantified `∀ x ∈ 𝔪` and was vacuous at `x = 0`. -/
 def HeckeChar.ConductorDvd (χ : HeckeChar F) (𝔪 : Ideal (𝓞 F)) : Prop :=
   ∀ v : FinPlace F, ∀ u : (v.adicCompletion F)ˣ,
     (u : v.adicCompletion F) ∈ v.adicCompletionIntegers F →
@@ -2238,7 +2235,7 @@ end a1_lambda_sol
 namespace a1_weil_sol
 
 /-- The quadratic sign-character glue is below the Gauss theorem and uses no Plan import.
-Guide: PROOFS.md:487–489. The Weil lead owns this glue; the Lambda lead owns its own interface. -/
+The Weil lead owns this glue; the Lambda lead owns its own interface. -/
 theorem quadratic_sign_character_data (D : FieldData F) (S : SData F CE condη)
     (A : AddCharData F) (H : HilbertData F) (Bd : BData S H) :
     ∃ θB : Bd.B →* ℂˣ, ∀ v : FinPlace F, v ∉ S.Sf →

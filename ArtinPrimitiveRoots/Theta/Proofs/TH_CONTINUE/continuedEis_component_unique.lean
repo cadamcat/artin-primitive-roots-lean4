@@ -9,7 +9,6 @@ namespace ArtinPrimitiveRoots.A1.Theta
 /-- Scalar identity theorem for component expressions, including finite linear combinations:
 agreement on the series ball gives agreement on the common continuation domain and equal
 residues. This is independent of the particular adelic family.
-Guide: `runs/lanes/sol-thin-thglobal/PROOFS.md:797–808`.
 Uses frozen `Spec.isOpen_contDomain` and `Spec.isPreconnected_contDomain`.
 Consumed by `continuedEis_component_reconstruction`; no continuation-existence input. -/
 theorem continuedEis_component_unique (ε ε' : ℝ) (hε : 0 < ε) (hε' : 0 < ε')

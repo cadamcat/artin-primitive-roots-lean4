@@ -86,7 +86,7 @@ private theorem iteratedFDeriv_coord_section_eq
 
 /-- A common positive coordinate neighborhood, compact integration set, and bounds for every
 kernel derivative. Nonnegativity and nonvanishing of the kernel are not required.
-Guide: `sol-thin-spec/PROOFS.md:402–405`. Uses `radialKernel_coord_smooth`,
+Uses `radialKernel_coord_smooth`,
 `radialKernel_support_thickening` and frozen `G1_h3_basics`; supplies the control hypothesis
 of `param_deriv_integral_formula`, hence S1 and S3. -/
 theorem radialKernel_compact_control (k₀ : ℝ → ℝ)

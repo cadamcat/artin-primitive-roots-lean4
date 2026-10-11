@@ -36,7 +36,6 @@ private theorem intertwine_add_smul_of_isSection {v : FinPlace F}
 
 /-- Form a local affine linear combination of two families with the same exterior sections.
 The resulting family has the same inserted support and a common small level.
-Guide: sol-thin-thglobal/PROOFS.md:915–929.
 Uses: sectionSpace closure, intertwine_isSection (integrability), jacquet_linear.
 Feeds: theta_lambda_descent and thetaWhit_section_multilinear. -/
 theorem analyticFamily_add_smul (Fam : AnalyticFamily P G μ) (v0 : FinPlace F)

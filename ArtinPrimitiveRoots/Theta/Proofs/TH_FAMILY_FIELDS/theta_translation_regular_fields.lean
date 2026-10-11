@@ -268,7 +268,6 @@ theorem thetaFamilyDeriv_torusDerivCont {P : CoverPackage D S H A}
   exact (hfold (Finset.univ : Finset (InfinitePlace F)).toList).2
 
 /-- Retain torus continuity and both root smoothness fields through the iterated derivative of the actual common-family residue.
-Guide: sol-thin-thglobal/PROOFS.md:1200–1204.
 Uses ThetaCommonSections.C, ContinuedEis.jointRoots and mixed derivative estimates; the formal Rderiv_spec alone does not supply these fields. -/
 theorem theta_translation_regular_fields {P : CoverPackage D S H A}
     (hRP : HasRestrictedProductTopology P) {N : ThetaNormalizationInput P}

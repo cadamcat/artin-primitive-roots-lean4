@@ -15,7 +15,7 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- The real trace form has balanced signature because multiplication by i negates it.
-Guide: PROOFS.md:480–485. Uses: primitive fourth root from D; QuadraticForm signature invariance and weighted-squares counts. -/
+Uses: primitive fourth root from D; QuadraticForm signature invariance and weighted-squares counts. -/
 theorem quadratic_trace_arch_phase_one (D : FieldData F) (a : Fˣ)
     (T : QuadraticTraceDiagonal a) : traceArchPhase T = 1 := by
   let m : F →ₗ[ℚ] F := LinearMap.mul ℚ F (a : F)

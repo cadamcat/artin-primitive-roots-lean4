@@ -13,7 +13,7 @@ noncomputable section
 
 /-- Lifespan selectors omit only assignments with more than B-KN ghost births, yielding
 the doubled finite choice majorant. The complete error decomposes over contributing paths.
-Guide runs/lanes/sol-thin-pdmem/PROOFS.md:454–481. Uses
+Uses
 pd_ordered_birth_bijection and pd_history_scalar_charge; feeds pd_truncation_tail_absorb.
 Factor the common signed path coefficient before taking the norm. -/
 theorem pd_truncation_choice_majorant (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :

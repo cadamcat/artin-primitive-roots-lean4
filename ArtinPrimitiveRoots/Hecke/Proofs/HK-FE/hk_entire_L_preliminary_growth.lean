@@ -266,7 +266,7 @@ private theorem exists_gamma_inv_strip_bound (a b : ℝ) (hab : a ≤ b) :
         exact hCsmall'.trans (le_mul_of_one_le_right (by positivity) he)
 
 /-- Preliminary exponential growth on a fixed real strip, sufficient for later PL.
-Guide: sol-thin-hk2/PROOFS.md:1547–1592. Uses the split completed Mellin integral,
+Uses the split completed Mellin integral,
 hk_mellin_FE_completed, reciprocal Gamma reflection/recurrence and compact continuity.
 The constants may depend on this character; polynomial growth is supplied by HK-H3. -/
 theorem hk_entire_L_preliminary_growth [IsTotallyComplex K] {m : RayClassModulus K}

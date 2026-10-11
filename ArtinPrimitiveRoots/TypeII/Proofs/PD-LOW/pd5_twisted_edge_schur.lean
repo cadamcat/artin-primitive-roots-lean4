@@ -2891,7 +2891,7 @@ private theorem pd5_absorb_general (L C a b : ℝ) (hL : 1 ≤ L) (hC0 : 0 ≤ C
 set_option maxHeartbeats 4000000
 
 /-- Polynomial Schur bounds for every bounded birth twist at a supplied fixed weight v.
-Guide `runs/lanes/sol-thin-pd5/PROOFS.md:712–752`; uses positive raw-plus-comparison choice
+Uses positive raw-plus-comparison choice
 weights before subtraction, pd5_edge_position_mass_le, finite prime masses and indexed
 insertion/factorial counts after target memorySym. Feeds modified operation bounds;
 no signed-kernel bound alone justifies this interface. -/

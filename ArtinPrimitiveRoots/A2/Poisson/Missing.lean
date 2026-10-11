@@ -1508,7 +1508,7 @@ private theorem po_probe_fundamentalDomain (O : Set S.FS)
   · exact hQMP
 
 /-- `po:probe-well-defined`, 05:82–112. Finiteness means finite support, not `tsum` definedness.
-The generator-independence frequency is restricted to `k : S.R` per `sol-thin-a2rp`, since its
+The generator-independence frequency is restricted to `k : S.R`, since its
 residue phase needs integrality. -/
 theorem po_probe_well_defined :
   (∀ I (a b : Fˣ), S.IsGen (a : F) I.1 → Bd.Allowed a → S.IsGen (b : F) I.1 → Bd.Allowed b →

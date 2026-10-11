@@ -1934,7 +1934,6 @@ private theorem conductorResidueCharacter_primitive
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
-Guide: sol-thin-a2zf/PROOFS.md:666–693.
 Uses ideal_S_exterior_split_count, exact localization, and HK-DICT-RAY. -/
 theorem primitive_conductor_residue_bridge (S : A1.SData F CE condη)
     (G : ConductorGenerators S) (ρ : ConductorResidues S)

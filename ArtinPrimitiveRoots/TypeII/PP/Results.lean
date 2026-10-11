@@ -33,7 +33,7 @@ theorem mean_value :
   exact mean_value_from_halasz
 
 /-- `t2:pp.log-phase` — PP `02-long-prime.tex:185-310`, Lemma 3.3; also PD Lemma 2.4. `I` is an interval in
-`[N', 2N']`, as in the paper (an arbitrary subset makes it false; lane `pp1`, 2026-10-07). -/
+`[N', 2N']`, as in the paper (an arbitrary subset makes it false; 2026-10-07). -/
 theorem log_phase :
     ∃ C₃ : ℝ, 0 < C₃ ∧
       ∀ C : ℝ, 0 < C →

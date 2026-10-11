@@ -15,7 +15,7 @@ open ArtinPrimitiveRoots.HeckeBoundary
 open Filter
 
 /-- The nontrivial entire Hecke factors give a holomorphic sharp-zeta quotient.
-Guide: ../sol-thin-s7/PROOFS.md:475–523. Uses the shared Euler core,
+Uses the shared Euler core,
 `LSeriesRay_entire`, change of modulus, and the sharp-zeta dictionary.
 The correction is `E * s7BaseDeletion`; at one both sharp functions equal zero.
 Feeds `sp_quotient_factor`. -/

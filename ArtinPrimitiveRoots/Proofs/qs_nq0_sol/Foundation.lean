@@ -9,19 +9,9 @@ requiring a separate localization argument.
 -/
 
 /-
-# NQ0 proof plan and lane state
+# NQ0 proof plan
 
-Branch: `lane/qs-nq0-sol`; worktree: `wt/`. The only frozen proof owned here is
-`ArtinPrimitiveRoots.A2.qs_canonical_family_NQ0` in
-`ArtinPrimitiveRoots/A2/Proofs/A2-QS-NARROW/NQ.lean`.
-
-The plan is to prove the following helpers in dependency order. Each helper
-ends a phase once it compiles and is committed. The signatures below are
-also retained as a source comment in the owned `Foundation.lean`; later
-helpers will live in their corresponding files under `Proofs/qs_nq0_sol/`.
-No planned signature is an assumed axiom or a `sorry` declaration.
-
-The signatures use this common context:
+The plan is to prove the following helpers in dependency order. The signatures use this common context:
 
 ```lean
 open scoped NumberField

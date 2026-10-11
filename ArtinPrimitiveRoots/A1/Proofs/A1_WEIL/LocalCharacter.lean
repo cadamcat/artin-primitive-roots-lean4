@@ -80,7 +80,7 @@ private theorem wb_annihilator_subset_diag (D : FieldData F) (S : SData F CE con
     _ = S.diag ((r₀ + tR : F)) := (map_add _ _ _).symm
 
 /-- Continuity, nontriviality, and unit modulus of the frozen local additive character.
-Guide: PROOFS.md:464–466. Uses: A.integral; A.trivial_on_F; A.unramified; A1-DUAL; weak approximation. -/
+Uses: A.integral; A.trivial_on_F; A.unramified; A1-DUAL; weak approximation. -/
 theorem local_character_regular (D : FieldData F) (A : AddCharData F)
     (v : FinPlace F) : LocalCharacterRegular A v := by
   classical

@@ -9,7 +9,7 @@ namespace ArtinPrimitiveRoots.A1.Spec
 variable {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
 
 /-- Recombine supported real H¹ maps into a compact complex-linear chart map.
-Guide: runs/lanes/sol-thin-spec/PROOFS.md:320. Uses only the prebuilt Euclidean
+Uses only the prebuilt Euclidean
 isCompactOperator_h1OnToL2 and Mathlib compact-operator composition/addition.
 The I compatibility is furnished by localized_chart_extension. -/
 theorem complex_chart_rellich_compact

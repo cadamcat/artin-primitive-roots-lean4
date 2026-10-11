@@ -278,8 +278,8 @@ private lemma traceChar_isPrimitive (m : RayClassModulus K)
   have hr_zero : Ideal.Quotient.mk (modulusIdeal m) b = 0 := Ideal.Quotient.eq_zero_iff_mem.mpr hb_in_mod
   exact hr_ne hr_zero
 
-/-- The exact-order trace generator descends to a primitive additive character. Guide:
-sol-thin-hk2/PROOFS.md:1283–1306. Uses hk_primitive_trace_generator, mem_traceDual and the
+/-- The exact-order trace generator descends to a primitive additive character.
+Uses hk_primitive_trace_generator, mem_traceDual and the
 Fourier-character integral kernel; the annihilator is precisely M. -/
 theorem hk_primitive_trace_additive [IsTotallyComplex K] (m : RayClassModulus K)
     (a : Kˣ) (B : Ideal (𝓞 K)) (hB : IsCoprimeTo m B)

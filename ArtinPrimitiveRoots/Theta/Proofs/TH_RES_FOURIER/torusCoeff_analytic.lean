@@ -18,7 +18,6 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
 
 /-- The continued torus integral is analytic on a possibly smaller continuation domain.
 The radius is chosen after g and Pd; pointwise E_analytic alone is not an integration theorem.
-Guide: sol-thin-thglobal/PROOFS.md:835–848, 862–882; the compact Banach argument is at 811–822.
 Uses red_decompose, P-SPEC compact-valued continuation, and analytic uniqueness.
 Feeds theta_constantTerm and analytic_residue_unique applications in Fourier assembly. -/
 theorem torusCoeff_analytic {P : CoverPackage D S H A} {G : GlobalDatum P}

@@ -12,7 +12,7 @@ open ClassFieldTheory ArtinPrimitiveRoots.Hecke
 open ArtinPrimitiveRoots.Ext.SplittingInputs
 
 /-- General abelian Euler factorization with the actual deleted-prime correction.
-Guide: ../sol-thin-s7/PROOFS.md:366–434. Uses `ext_cft_artin`,
+Uses `ext_cft_artin`,
 `prod_one_sub_character`, `finite_euler_correction_analytic`, the Hecke Euler
 product, residue Frobenius order, and convergent regrouping by contraction.
 Feeds `sp_upstairs_factor` and `quotient_factor_of_euler_identity`. -/

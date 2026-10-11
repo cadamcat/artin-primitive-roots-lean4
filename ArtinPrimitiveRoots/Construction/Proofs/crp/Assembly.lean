@@ -1,7 +1,7 @@
 import ArtinPrimitiveRoots.Construction.Proofs.crp.Survivors
 import ArtinPrimitiveRoots.Construction.Defs
 
-/-! Assembly lemmas for `con_rough_pairs` (PROOFS.md §13, steps 7–9). The construction inputs
+/-! Assembly lemmas for `con_rough_pairs`. The construction inputs
 (`support`, `con_harmonic`, `con_distribution`) enter only as hypotheses, so this file does not
 depend on `Results.lean`. -/
 

@@ -8,7 +8,7 @@ open ArtinPrimitiveRoots.TypeII
 noncomputable section
 
 /-! Indexed deletion bounds exposed from the proved MemoryResults helper bodies.
-Guide `runs/lanes/sol-thin-pd5/PROOFS.md:164–185`. These feed positive ghost choice rows;
+These feed positive ghost choice rows;
 subsets count coordinates rather than distinct particle values. -/
 
 theorem pd5_sum_powerset_binomial {α : Type*} [DecidableEq α]

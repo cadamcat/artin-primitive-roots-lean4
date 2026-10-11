@@ -13,7 +13,6 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
   {H : HilbertData F} {A : AddCharData F}
 
 /-- Convert the single compact majorant and the exact Fourier identity into the consumer finite-tail estimate, in the cover topology.
-Guide: sol-thin-thglobal/PROOFS.md:1211–1224.
 Uses theta_compact_fourier_majorant and the supplied theta_fourier_expansion conclusion. -/
 theorem theta_fourierLocallyUniform {P : CoverPackage D S H A}
     (hRP : HasRestrictedProductTopology P) {N : ThetaNormalizationInput P}

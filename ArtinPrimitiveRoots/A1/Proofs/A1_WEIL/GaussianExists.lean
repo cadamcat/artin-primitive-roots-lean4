@@ -22,7 +22,7 @@ local instance measurableGaussianExists (v : FinPlace F) : MeasurableSpace (v.ad
 local instance borelGaussianExists (v : FinPlace F) : BorelSpace (v.adicCompletion F) := ⟨rfl⟩
 
 /-- Assemble measures, actual stabilization cutoffs, and nonzero normalized ratios.
-Guide: PROOFS.md:464–469. Uses: local_haar_exists; local_character_regular; quadratic_integral_stabilizes; stable_quadratic_integral_ne_zero; local_absolute_value. -/
+Uses: local_haar_exists; local_character_regular; quadratic_integral_stabilizes; stable_quadratic_integral_ne_zero; local_absolute_value. -/
 theorem local_gaussian_data (D : FieldData F) (A : AddCharData F) :
     Nonempty (LocalGaussianData A) := by
   classical

@@ -2,7 +2,7 @@ import ArtinPrimitiveRoots.Splitting.ZeroFree
 
 /-! `spl:field-bounds`, moved here on 2026-10-07 (statement unchanged): its proof assembles the
 compositum and the zero-free descent of `Splitting/ZeroFree.lean`, which imports
-`Splitting/Algebraic.lean`, so in `Algebraic.lean` it could never be proved (lane `sol-thin-s7`). -/
+`Splitting/Algebraic.lean`, so in `Algebraic.lean` it could never be proved. -/
 
 set_option autoImplicit false
 

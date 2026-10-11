@@ -10,7 +10,7 @@ namespace ArtinPrimitiveRoots.Hecke
 variable {K : Type*} [Field K] [NumberField K]
 
 /-- Normalize H1's completed Mellin transform to the exact Deligne GammaC product, restricting
-the product to regular Gamma arguments. Guide: sol-thin-hk2/PROOFS.md:1512–1545.
+the product to regular Gamma arguments.
 Uses heckeBeta, rayMellinNormalization and reciprocal Gamma cancellation. -/
 theorem hk_completed_gamma_product [IsTotallyComplex K] {m : RayClassModulus K}
     (ψ : RayClassGroup m →* ℂˣ) {s : ℂ} (hs : ∀ n : ℕ, s ≠ -(n : ℂ)) :

@@ -3,7 +3,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.Gamma
 import ArtinPrimitiveRoots.Hecke.Dict.IdeleCoordinates
 import OAI.NumberTheory.DirichletL.Arithmetic.IdealMobius
 
-/-! A1-LAMBDA interfaces below Characters. Guide: sol-thin-a1/PROOFS.md:428-439.
+/-! A1-LAMBDA interfaces below Characters.
 The character abbreviations and angular condition unfold to the frozen bodies.
 Eisenstein primary generators are reused from the prebuilt OAI IdealMobius module. -/
 

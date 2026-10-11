@@ -38,7 +38,7 @@ private def angularHom : ContinuousMonoidHom ℂˣ ℂˣ where
       simpa [angularUnit, inv_div] using hcontInv
 
 /-- A1-LAMBDA IMPL: Bundle z/abs(z) on complex units; norm multiplicativity and continuous division give the homomorphism.
-Guide: sol-thin-a1/PROOFS.md:428-439. Uses: Definitions. -/
+Uses: Definitions. -/
 theorem angular_character_exists :
     ∃ a : ContinuousMonoidHom ℂˣ ℂˣ, ∀ z : ℂˣ,
       ((a z : ℂˣ) : ℂ) = (z : ℂ) / ‖(z : ℂ)‖ := by

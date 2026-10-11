@@ -152,7 +152,7 @@ private lemma siegelRowKernel_unit_smul (ε : (𝓞 F)ˣ) (a b : F)
 
 /-- The row-kernel sum is uniformly bounded on balanced positive heights with a
 product floor, for any denominator-bounded row family with distinct unit orbits and
-nonzero first coordinates. Guide: `sol-thin-spec/PROOFS.md:352,358`.
+nonzero first coordinates.
 Uses `scalar_unit_orbit_section`, `scalar_unit_orbit_summable`, and
 `balanced_first_coordinate_fiber_bound`; feeds `nontriangular_siegel_summable`.
 Rescale each whole row to its chosen c representative, inject into the (c,d) family,

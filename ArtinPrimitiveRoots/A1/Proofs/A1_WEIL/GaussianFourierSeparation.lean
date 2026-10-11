@@ -22,7 +22,7 @@ local instance fourierSeparationBorel (v : FinPlace F) :
 /-- A compact frequency test separates the actual stable Gaussians of a nonsquare and one.
 Finite Fourier orthogonality evaluates both cutoff tests; dominated convergence
 passes to their stable values. Positive finite Haar masses make the unscaled test nonzero.
-Guide: PROOFS.md:468–475; regularity and the scalar Jacobian remain explicit. -/
+Regularity and the scalar Jacobian remain explicit. -/
 theorem stable_gaussian_fourier_separation (A : AddCharData F)
     (W : LocalGaussianData A) (v : FinPlace F)
     (hregular : LocalCharacterRegular A v)

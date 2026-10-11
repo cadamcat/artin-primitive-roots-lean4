@@ -19,7 +19,6 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
   {H : HilbertData F} {A : AddCharData F}
 
 /-- Bound all actual normalized coefficients on a compact set by one summable real majorant; pointwise Summable is insufficient.
-Guide: sol-thin-thglobal/PROOFS.md:1211–1224.
 Uses theta_uniform_adapted_lattice, uniform mixed derivative bounds on compact coordinate closures and full dual-lattice Fourier decay. -/
 theorem theta_compact_fourier_majorant {P : CoverPackage D S H A}
     (hRP : HasRestrictedProductTopology P) {N : ThetaNormalizationInput P}

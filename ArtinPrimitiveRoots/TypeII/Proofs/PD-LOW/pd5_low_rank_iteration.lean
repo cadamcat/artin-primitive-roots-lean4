@@ -802,8 +802,7 @@ private theorem pd5_modifiedEdgeVisits_card_le {K : ℕ} (N : ℕ)
 
 set_option maxHeartbeats 8000000 in
 /-- Iterate norms on the finite invariant state set, with at most twice the rank modified
-edges. The exponent uses real N-2r even when negative. Guide
-`runs/lanes/sol-thin-pd5/PROOFS.md:771–832`; uses boundary, finite model, Fourier, phase
+edges. The exponent uses real N-2r even when negative. Uses boundary, finite model, Fourier, phase
 attachment, rank support and the supplied modified bounds; feeds frozen history_rank_low. -/
 theorem pd5_low_rank_iteration (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁)
     (K : ℕ) (F : PDFix K) (hF : F.Valid) (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ)

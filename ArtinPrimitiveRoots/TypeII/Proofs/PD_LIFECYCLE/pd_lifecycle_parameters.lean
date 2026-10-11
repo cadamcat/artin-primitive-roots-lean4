@@ -153,7 +153,7 @@ private theorem pdLifeBandMass_bounds {K : ℕ} (F : PDFix K) (hF : F.Valid) :
     linarith
 
 /-- Positive, bounded band masses, disjoint bands, and b-prime denominators at large x.
-Guide runs/lanes/sol-thin-pdmem/PROOFS.md:402–417,482–503. Uses band_mass and
+Uses band_mass and
 large-x separation of ValidBands; feeds all lifespan normalization and bounds. -/
 theorem pd_lifecycle_parameters (K : ℕ) (F : PDFix K) (hF : F.Valid) :
     ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x →

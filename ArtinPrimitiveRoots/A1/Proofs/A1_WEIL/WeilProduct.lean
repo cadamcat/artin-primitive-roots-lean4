@@ -55,7 +55,7 @@ private theorem wi_tracePrime_product_eq_one {a : Fˣ} (T : QuadraticTraceDiagon
     _ = 1 := by rw [harch]; simp
 
 /-- Assemble the global quadratic index product from trace transfer and rational reciprocity.
-Guide: PROOFS.md:480–485. Uses: global_index_finite_support; global_index_prime_fibers; quadratic_trace_transfer; quadratic_trace_arch_phase_one; rational_phase_product. -/
+Uses: global_index_finite_support; global_index_prime_fibers; quadratic_trace_transfer; quadratic_trace_arch_phase_one; rational_phase_product. -/
 theorem weil_product (D : FieldData F) (A : AddCharData F)
     (W : LocalGaussianData A) : ∀ a : Fˣ,
       (Function.mulSupport fun v => W.index v (toLoc v a)).Finite ∧

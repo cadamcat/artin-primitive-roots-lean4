@@ -12,7 +12,6 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
 
 /-- A regularization of the Euler product on the positive half-plane, with its residue
 identified by the same real-sided limit used in resCprod.
-Guide: sol-thin-thglobal/PROOFS.md:843–845 (zeta input: 758–780).
 Uses FourierEulerHyp, supplied by the frozen cprod_eq_zeta_ratio and the existing
 resLSeries_eq_zetaT0 helper at the Res boundary. Feeds theta_constantTerm. -/
 theorem regularized_cprod_continuation (T0 : Finset (FinPlace F))

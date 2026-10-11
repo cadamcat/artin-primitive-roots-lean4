@@ -20,7 +20,7 @@ local instance nondegenerateBorel (v : FinPlace F) :
 /-- A trivial multiplicative defect of the actual Gaussian index forces a square.
 Cancel the explicit normalization to compare stable Gaussians by a nonzero scalar.
 The checked Fourier support separation rules out that comparison for a nonsquare.
-Guide: PROOFS.md:468–475; character regularity and the Haar Jacobian remain explicit. -/
+Character regularity and the Haar Jacobian remain explicit. -/
 theorem local_index_defect_nondegenerate (A : AddCharData F)
     (W : LocalGaussianData A) (v : FinPlace F)
     (hregular : LocalCharacterRegular A v)

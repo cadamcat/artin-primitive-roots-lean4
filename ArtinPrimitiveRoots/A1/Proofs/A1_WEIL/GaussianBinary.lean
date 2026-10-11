@@ -17,7 +17,7 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- Binary Gaussian isometry identity when a+b is nonzero.
-Guide: PROOFS.md:474–475. Uses: stable_value_square_scale; finite Fubini; determinant-one binary variable change. -/
+Uses: stable_value_square_scale; finite Fubini; determinant-one binary variable change. -/
 theorem local_index_binary (D : FieldData F) (A : AddCharData F) (W : LocalGaussianData A)
     (v : FinPlace F) (a b : (v.adicCompletion F)ˣ)
     (h : (a : v.adicCompletion F) + (b : v.adicCompletion F) ≠ 0) :

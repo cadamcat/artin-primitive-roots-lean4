@@ -91,7 +91,7 @@ theorem fourierFirstCoeff_congr_of_whittakerE {P : CoverPackage D S H A}
     _ = q * fourierFirstCoeff R g := by rw [hfirst]
 
 /-- Genuineness and the exact S and exterior unipotent character laws for the chosen
-first residue coefficient. Guide: sol-thin-thglobal/PROOFS.md:872–882.
+first residue coefficient.
 Uses adapted-domain existence, analytic_residue_unique, torusCoeff_analytic, whittakerE_equiv.
 Feeds the frozen thetaWhit_equiv; no rationality assumption is made on S-unipotents. -/
 theorem thetaWhit_equiv_assembly {P : CoverPackage D S H A} {G : GlobalDatum P}

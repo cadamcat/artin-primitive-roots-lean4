@@ -297,8 +297,8 @@ private theorem gamma_top_eq_one (D : FieldData F) (S : SData F CE condη)
   simp only [Nat.cast_one, Real.one_rpow, Complex.ofReal_one, one_mul]
   simpa [f] using hsum
 
-/-- The value at zero from cf:B0 (02a:63–64). The unit-ideal representative is normalized per
-`sol-thin-a1`; representatives at other ideals do not affect this value. -/
+/-- The value at zero from cf:B0 (02a:63–64). The unit-ideal representative is normalized;
+representatives at other ideals do not affect this value. -/
 theorem B0_eq_PG (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
     (ϑ : HeckeChar F) (cgen : S.SqfExtIdeal → F)
     (hunit : ∀ I : S.SqfExtIdeal, I.1 = ⊤ → S.IsGen (cgen I) ⊤)

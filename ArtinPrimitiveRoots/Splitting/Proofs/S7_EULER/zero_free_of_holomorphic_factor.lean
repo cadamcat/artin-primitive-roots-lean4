@@ -10,7 +10,7 @@ namespace ArtinPrimitiveRoots.Splitting
 open ClassFieldTheory ArtinPrimitiveRoots.Hecke
 
 /-- A holomorphic factor has nonnegative order, so nonpositive upstairs orders
-descend to the base. Guide: ../sol-thin-s7/PROOFS.md:524–550.
+descend to the base.
 Uses `dedekindZetaSharp_meromorphic` and meromorphic order multiplication;
 feeds `spl_kummer_zero_free`. -/
 theorem zero_free_of_holomorphic_factor (B T : Type*)

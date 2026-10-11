@@ -30,7 +30,6 @@ private theorem multilinear_finBasis_expand {ι : Type} [Fintype ι] [DecidableE
   simp [smul_eq_mul, b]
 
 /-- Export the finite tensor expansion at the Weyl translate with δ = 1/3, including the one empty tensor when S.Sf is empty.
-Guide: sol-thin-thglobal/PROOFS.md:1191–1199.
 Uses theta_complex_derivative_tensor, rotatedCoord_sheetHyp, sheetHypC_bessel, derivVecC_rotate and the finite-place bases. -/
 theorem theta_T6_sheet_bound {P : CoverPackage D S H A}
     {N : ThetaNormalizationInput P} {𝓛 : Finset (SChar S)}

@@ -7,9 +7,6 @@ import OAI.NumberTheory.DirichletL.QuadraticSieve.FiniteOperator
 /-!
 # A2-QS: shared definitions of the quadratic large sieve core (matrix layer)
 
-Lead `qs-lead` stage 1 (2026-10-07).  Route: `runs/lanes/sol-thin-found/PROOFS.md` §III
-(lines 297-649), contracts M0-M2 at lines 305-328.
-
 The frozen family record `QuadraticHeckeFamily` lives in `A2/QuadraticSieve.lean` together with
 the three frozen theorems whose proofs are glued from this chain.  To avoid an import cycle, the
 chain works with the field-for-field mirror `QSFamily` below; the glue in `QuadraticSieve.lean`
@@ -164,12 +161,12 @@ def qsMatrix {m : ClassFieldTheory.RayClassModulus K} {qS : Ideal (𝓞 K)}
     Matrix (qsUpTo m qS M) (qsUpTo m qS N) ℂ :=
   fun d c => (F.character c.1).idealValue d.1
 
-/-- `B1(M,N)`: squared operator norm of the up-to matrix (guide M0, found:305). -/
+/-- `B1(M,N)`: squared operator norm of the up-to matrix -/
 def qsNorm {m : ClassFieldTheory.RayClassModulus K} {qS : Ideal (𝓞 K)}
     (F : QSFamily m qS) (M N : ℝ) : ℝ :=
   ‖OAI.FiniteSieveOperator.operator (qsMatrix F M N)‖ ^ 2
 
-/-- `HasExponent α` (found:299-303): `B1(M,N) ≪_ε (MN)^ε (M + N^α)`, constants before lengths. -/
+/-- `HasExponent α`: `B1(M,N) ≪_ε (MN)^ε (M + N^α)`, constants before lengths. -/
 def QSHasExponent {m : ClassFieldTheory.RayClassModulus K} {qS : Ideal (𝓞 K)}
     (F : QSFamily m qS) (α : ℝ) : Prop :=
   ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∀ M N : ℝ, 1 ≤ M → 1 ≤ N →

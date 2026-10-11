@@ -11,7 +11,6 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
   {H : HilbertData F} {A : AddCharData F}
 
 /-- Export exactly the seven common-neighborhood fields consumed by ThetaFamily.U_spec.
-Guide: sol-thin-thglobal/PROOFS.md:1173–1180.
 Uses ThetaCommonSections, finite products of open and compact sets. -/
 theorem theta_common_U_spec {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
     {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) :

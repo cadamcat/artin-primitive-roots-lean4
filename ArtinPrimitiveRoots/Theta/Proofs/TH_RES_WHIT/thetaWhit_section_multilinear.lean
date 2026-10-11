@@ -22,7 +22,6 @@ variable {P : CoverPackage D S H A} {G : GlobalDatum P}
 /-- Take simple Laurent residues of finitely many section-coordinate coefficient functions.
 This constructs a multilinear section functional with local psi-equivariance and separates the
 complex spherical Jacquet factors by analytic continuation, including their zeros.
-Guide: sol-thin-thglobal/PROOFS.md:1007–1030.
 Uses: sectionSpace_family_spanning, analyticFamily_add_smul, whittakerE_multilinear,
 ThetaResidueLaws.fourierCoeff, ThetaResidueLaws.linearTranslate, ContinuedEis.laurent_torus.
 Feeds: thetaWhit_multilinear via thetaWhit_jacquet_factorization. -/

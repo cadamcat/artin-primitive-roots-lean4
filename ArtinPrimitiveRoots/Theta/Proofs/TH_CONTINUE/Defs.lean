@@ -16,7 +16,7 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
   {H : HilbertData F} {A : AddCharData F}
 
 /-- The section data used by TH-CONTINUE. Keeping this independent of `AnalyticFamily` avoids
-an import cycle with `Res.lean`. Guide: `sol-thin-thglobal/PROOFS.md:786–796`. -/
+an import cycle with `Res.lean`. -/
 structure ContinuedEisInput (P : CoverPackage D S H A) (G : GlobalDatum P) where
   sec : ∀ s : ℂ, GlobalSection P G s
   T0 : Finset (FinPlace F)
@@ -31,7 +31,7 @@ variable [IsTotallyComplex F]
 
 /-- A common level, finite components, and cusp continuations aligned to one radius.
 The radius bound keeps all coefficient functions analytic on the residue ball.
-Guide: `sol-thin-thglobal/PROOFS.md:786–796`; inputs: `exists_classical_components`,
+Inputs: `exists_classical_components`,
 `red_decompose`, `Spec.exists_continuedEisenstein`, and `exists_restrict`. -/
 structure ContinuedEisComponents {P : CoverPackage D S H A} {G : GlobalDatum P}
     (I : ContinuedEisInput P G) where
@@ -78,7 +78,7 @@ def ContinuedEisComponents.componentTheta {P : CoverPackage D S H A} {G : Global
 /-- Adelic reconstruction of the component formulas. `point_transport` records the same
 representation for the continued functions and their original series; its multiplier is
 independent of the spectral parameter. No claim is made outside the continuation domain.
-Guide: `sol-thin-thglobal/PROOFS.md:797–808`. -/
+-/
 structure ContinuedEisReconstruction {P : CoverPackage D S H A} {G : GlobalDatum P}
     {I : ContinuedEisInput P G} (C : ContinuedEisComponents I) where
   E : ℂ → P.tc.G → ℂ
@@ -104,7 +104,7 @@ structure ContinuedEisReconstruction {P : CoverPackage D S H A} {G : GlobalDatum
 
 /-- One fixed classical component along an entire left archimedean unipotent orbit, with
 continuous positive coordinates. Compact parameter sets therefore have compact coordinate
-images contained in `Spec.posSet`. Guide: `sol-thin-thglobal/PROOFS.md:812–815`. -/
+images contained in `Spec.posSet`. -/
 def ContinuedEisTorusCharts {P : CoverPackage D S H A} {G : GlobalDatum P}
     {I : ContinuedEisInput P G} {C : ContinuedEisComponents I}
     (R : ContinuedEisReconstruction C) : Prop :=

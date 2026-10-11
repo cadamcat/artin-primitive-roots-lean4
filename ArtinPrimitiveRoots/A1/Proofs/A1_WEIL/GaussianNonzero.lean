@@ -20,7 +20,7 @@ local instance measurableGaussianNonzero (v : FinPlace F) : MeasurableSpace (v.a
 local instance borelGaussianNonzero (v : FinPlace F) : BorelSpace (v.adicCompletion F) := ⟨rfl⟩
 
 /-- The stabilized one-dimensional Gaussian integral is nonzero.
-Guide: PROOFS.md:466–468. Uses: local_haar_scale; LocalCharacterRegular; finite coset orthogonality. -/
+Uses: local_haar_scale; LocalCharacterRegular; finite coset orthogonality. -/
 theorem stable_quadratic_integral_ne_zero (A : AddCharData F) (v : FinPlace F) (μ : Measure (v.adicCompletion F))
     (hμ : Measure.IsAddHaarMeasure μ) (hψ : LocalCharacterRegular A v)
     (a : (v.adicCompletion F)ˣ) (N : ℕ) (hN : StabilizesAt A v μ a N) :

@@ -3402,7 +3402,7 @@ private theorem pd5_constraintRank_initial_future {K : ℕ} (S : PDScale) (B : �
   exact hcard
 
 /-- Fixed-system absolute bound from positive choices, with chronological pivots.
-Guide `runs/lanes/sol-thin-pd5/PROOFS.md:328–397`; uses pd5_positive_choice_rows,
+Uses pd5_positive_choice_rows,
 pd5_triangular_birth_sum_le, pd5_chronological_model and pd5_scale_facts;
 feeds pd5_high_rank_tail and frozen history_rank_high. Constants precede S,w and the system. -/
 theorem pd5_fixed_system_abs_estimate (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁)

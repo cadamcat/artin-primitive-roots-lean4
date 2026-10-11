@@ -13,7 +13,7 @@ namespace ArtinPrimitiveRoots.Proofs.a1_weil_sol
 
 /-- Average a bounded phase over a small compact subgroup. Character orthogonality
 reduces every sufficiently large compact subgroup to the same annihilator integral.
-Guide: PROOFS.md:480–485; supplies cutoff independence for the trace-form comparison.
+Supplies cutoff independence for the trace-form comparison.
 Both restricted measures are finite before the Fubini step. -/
 theorem large_subgroup_phase_integrals_eq
     {G : Type*} [AddCommGroup G] [TopologicalSpace G] [IsTopologicalAddGroup G]

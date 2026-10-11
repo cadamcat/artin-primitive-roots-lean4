@@ -12,7 +12,7 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
 
 /-- Equality up to a scalar on the convergence ball gives the same scalar relation between
 residues. Both functions are analytic on the same connected punctured domain.
-Guide: sol-thin-thglobal/PROOFS.md:862–882. Uses Spec.C1_domain and analytic uniqueness.
+Uses Spec.C1_domain and analytic uniqueness.
 Feeds Fourier domain independence, diagonal transport, equivariance, and regularized_residue_eval. -/
 theorem analytic_residue_unique (η : ℝ) (hη : 0 < η)
     (f f' : ℂ → ℂ) (r r' q : ℂ)

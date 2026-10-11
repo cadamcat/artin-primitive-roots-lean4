@@ -6,7 +6,7 @@ import DedekindResidue.CompletedZeta.FunctionalEquation
 /-!
 # Hecke L-function package: the Dedekind zeta function of a number field (D1, D2)
 
-Frozen interface. Design: `research/design/A2-HeckeAPI.lean` and `A2-DESIGN.md` (Opus A2 sub-agent, 2026-10-07).
+Frozen interface.
 -/
 
 set_option autoImplicit false
@@ -133,7 +133,7 @@ theorem dedekind_completed (K : Type*) [Field K] [NumberField K] :
   exact ⟨ξ, hξ, hEq, hFE, hξ1⟩
 
 /-- **(D2) Order at most one** (constant may depend on `K`): every entire `ξ` as in (D1)
-satisfies `‖ξ s‖ ≤ exp(C (‖s‖ + 1) log(‖s‖ + 2))` (the form without `+ 1` fails at `s = 0`, lane `hk-ded`).
+satisfies `‖ξ s‖ ≤ exp(C (‖s‖ + 1) log(‖s‖ + 2))` (the form without `+ 1` fails at `s = 0`).
 Consumers: B `ext:dedekind-fe` (order-one clause), `ext:hadamard-order-one`,
 `spl:explicit-formula`.  Library: AINTLIB strip bound
 `exists_completedDedekindZetaEntire_strip_bound` (`CompletedZeta/AnalyticControl.lean:119`)

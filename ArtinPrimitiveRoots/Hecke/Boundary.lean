@@ -5,7 +5,7 @@ import ArtinPrimitiveRoots.A2.Endpoint
 # The A/B boundary: Theorem `thm:hecke-zero-free`
 
 `a2_zero_free_every_continuation` is part A's theorem (`sorry` until the A chain is done);
-`thm_hecke_zero_free` is the form part B consumes, proved from it and (H1), (H2). Design: `research/design/A2-HeckeAPI.lean` and `A2-DESIGN.md` (Opus A2 sub-agent, 2026-10-07).
+`thm_hecke_zero_free` is the form part B consumes, proved from it and (H1), (H2).
 -/
 
 set_option autoImplicit false

@@ -11,7 +11,7 @@ noncomputable section
 /-- Exact scalar charge for every valid lifespan assignment: all rho factors cancel,
 nu and promotion factors pay one V inverse per active run, and the run count extracts
 physicalMeasure and the N edge normalizations.
-Guide runs/lanes/sol-thin-pdmem/PROOFS.md:434–449. Uses pd_active_run_count and
+Uses pd_active_run_count and
 pd_lifecycle_parameters; feeds the ordered history assembly and the common cutoff majorant.
 The statement is per assignment, so every cutoff selector can be retained. -/
 theorem pd_history_scalar_charge (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :

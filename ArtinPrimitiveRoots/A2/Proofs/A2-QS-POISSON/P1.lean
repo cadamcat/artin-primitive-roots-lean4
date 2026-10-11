@@ -6,7 +6,7 @@ import ArtinPrimitiveRoots.Proofs.qs_p1_p.Analytic
 /-!
 # A2-QS-POISSON, part P1: primitive smooth ideal Poisson
 
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:348-362`.  Uses `qs_quadratic_FE_root_one` (RN),
+Uses `qs_quadratic_FE_root_one` (RN),
 `qs_transform_bounds_P0`, `qs_transform_mellin_P0`, `qs_tail_bound_M1`.  Proof: write
 `h(N a/X)` by Mellin inversion, interchange with the absolutely convergent series on `Re s = 2`,
 shift to `Re s = -σ` (`0 < σ < 1`) using strip boundedness and Phragmén–Lindelöf/Stirling for
@@ -27,7 +27,7 @@ namespace ArtinPrimitiveRoots.A2
 variable {K : Type} [Field K] [NumberField K]
 
 /-- P1 (SOL-LEAD): primitive smooth ideal Poisson for a nonprincipal quadratic character of
-trivial infinite type and exact conductor `f` (found:352-358):
+trivial infinite type and exact conductor `f`:
 `Σ'_a χ(a) h(N a/X) = X/√(N f) · Σ'_a χ(a) (T h)(X N a / N f)`; the dual series is
 absolutely summable (the left one is a finite sum). -/
 theorem qs_primitive_smooth_poisson_P1 [IsTotallyComplex K]

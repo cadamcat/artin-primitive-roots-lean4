@@ -3,9 +3,6 @@ import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».Defs
 /-!
 # A2-QS-MOBIUS / A2-QS-CANCEL: block-level definitions
 
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:380-550` (S0-S2, C0-C3), re-cut by the lead
-(see `runs/lanes/qs-lead/STATEMENTS.md`).
-
 Notation.  `F` a mirrored family with trivial ray factor; rows `a` of the smooth sums are nonzero
 ideals coprime to a squarefree ideal `𝔮` (in the blocks `𝔮 = qsBadRad m qS * g`); `ψ = χ_c χ_d⁻¹`
 the residual pair character of a coprime equal-class column pair, of exact conductor `f = c d`;
@@ -243,7 +240,7 @@ def QSBlockCols (m : ClassFieldTheory.RayClassModulus K) (qS : Ideal (𝓞 K)) (
       (hd : ArtinPrimitiveRoots.Hecke.IsCoprimeTo m d),
       ArtinPrimitiveRoots.Hecke.rayClass m c hc = ArtinPrimitiveRoots.Hecke.rayClass m d hd)
 
-/-- Shape of the block bound: `M + n + √M κ^{α-1/2} + n √(M/κ)` (guide C3, found:536-540). -/
+/-- Shape of the block bound: `M + n + √M κ^{α-1/2} + n √(M/κ)`. -/
 def qsBlockShape (M n κ α : ℝ) : ℝ :=
   M + n + Real.sqrt M * κ ^ (α - 1 / 2) + n * Real.sqrt (M / κ)
 

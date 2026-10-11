@@ -5,12 +5,6 @@ import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-BOOT».B0.Final
 
 /-!
 # A2-QS-BOOT: monotone row norm, finite descent, bootstrap and the core theorem
-
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:482-496` (III.6, monotone up-to row norm),
-`553-582` (B0-B2).  Numeric cores already compiled in `runs/lanes/sol-thin-found/wt/
-ArtinPrimitiveRoots/Review/sol-thin-found/`: `MonotoneBootstrap.monotone_threshold_improvement`
-(imports `OAI.NumberTheory.DirichletL.QuadraticSieve.SelectedExponents`, prebuilt),
-`SieveAlgebra.exponent_step`, `SieveAlgebra.optimized_scale_identity`.
 -/
 
 set_option autoImplicit false
@@ -26,7 +20,7 @@ namespace ArtinPrimitiveRoots.A2
 variable {K : Type} [Field K] [NumberField K]
 variable {m : ClassFieldTheory.RayClassModulus K} {qS : Ideal (𝓞 K)}
 
-/-- Row split (IMPL; RETIER `qs_monotone_row_norm`, found:484-487): the squarefree rows of norm
+/-- Row split (IMPL; RETIER `qs_monotone_row_norm`): the squarefree rows of norm
 `≤ κ` give `B1(κ, N)`; the rows with `κ < N a ≤ M` have `sf(a) = N a > κ` and `W(N a/M) ≥ 1`,
 so they are dominated by the high-core matrix. -/
 theorem qs_row_split_B (F : QSFamily m qS) (W : ℝ → ℝ) (hW : IsCapWeight W)
@@ -214,7 +208,7 @@ theorem qs_high_core_bound_B0 [IsTotallyComplex K] (F : QSFamily m qS)
 set_option maxHeartbeats 600000 in
 open Classical in
 /-- Recursion (IMPL): `HasExponent α ⇒ B1(M,N) ≪_δ (MN)^δ (M + N + N^{2α-1} M^{1-α})` for
-`M ≥ N ≥ 1` (found:556-570): row split at `κ = N²/M (MN)^η`, `B1(κ,N) = B1(N,κ) ≪ N + κ^α`
+`M ≥ N ≥ 1`: row split at `κ = N²/M (MN)^η`, `B1(κ,N) = B1(N,κ) ≪ N + κ^α`
 with `κ^α ≤ N^{2α-1}M^{1-α}(MN)^{αη}`, B0 for the high rows; endpoints `M ≥ N²` (exponent
 `α ≤ 2`) and `N ≤ M < 2N(MN)^η` (`N^α = N^{2α-1}M^{1-α}(M/N)^{α-1}`); a cap weight exists by
 `qs_cap_weight_exists_P0`. -/
@@ -507,7 +501,7 @@ theorem qs_upTo_recursion_B [IsTotallyComplex K] (F : QSFamily m qS)
             (mul_le_mul_of_nonneg_right hcoef (by positivity)) hH
 
 /-- B1 (IMPL; numeric core `monotone_threshold_improvement`): the recursion and monotonicity
-(`qs_norm_mono_M0`) give `HasExponent (2 - 1/α)` (`M' = max(M, N^{2-1/α})`, found:571-576). -/
+(`qs_norm_mono_M0`) give `HasExponent (2 - 1/α)` (`M' = max(M, N^{2-1/α})`). -/
 theorem qs_boot_step_B1 (F : QSFamily m qS) (α : ℝ) (hα1 : 1 ≤ α)
     (hrec : ∀ δ : ℝ, 0 < δ → ∃ C : ℝ, 0 < C ∧ ∀ M N : ℝ, 1 ≤ N → N ≤ M →
       qsNorm F M N ≤ C * (M * N) ^ δ * (M + N + N ^ (2 * α - 1) * M ^ (1 - α))) :
@@ -653,7 +647,7 @@ theorem qs_exponent_iteration_B2 [IsTotallyComplex K] (F : QSFamily m qS)
       rw [← hindex]
       exact hnext
 
-/-- B2 (IMPL): the sharp core bound (found:577-582): choose `j` with `1/(j+1) < ε/4`; then
+/-- B2 (IMPL): the sharp core bound: choose `j` with `1/(j+1) < ε/4`; then
 `N^{α_j} ≤ N (MN)^{ε/4}`. -/
 theorem qs_core_large_sieve_B2 [IsTotallyComplex K] (F : QSFamily m qS)
     (hrf : ∀ g h, F.rayFactor g h = 1) (hqS : qS ≠ ⊥) :

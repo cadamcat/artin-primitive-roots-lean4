@@ -392,7 +392,7 @@ private theorem wb_quadratic_shell_integral_zero (A : AddCharData F)
   · simpa [S, q] using hI
 
 /-- Stabilize the actual ball integral by cancelling all sufficiently remote shells.
-Guide: PROOFS.md:464–466. Uses: A.integral; LocalCharacterRegular; valuation balls; Haar translation. -/
+Uses: A.integral; LocalCharacterRegular; valuation balls; Haar translation. -/
 theorem quadratic_integral_stabilizes (A : AddCharData F) (v : FinPlace F) (μ : Measure (v.adicCompletion F))
     (hμ : Measure.IsAddHaarMeasure μ) (hψ : LocalCharacterRegular A v)
     (a : (v.adicCompletion F)ˣ) : ∃ N, StabilizesAt A v μ a N := by

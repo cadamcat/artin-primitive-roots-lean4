@@ -16,7 +16,7 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- Diagonalize the genuine nondegenerate rational trace form.
-Guide: PROOFS.md:480–481. Uses: traceForm_nondegenerate; equivalent_weightedSumSquares_units_of_nondegenerate. -/
+Uses: traceForm_nondegenerate; equivalent_weightedSumSquares_units_of_nondegenerate. -/
 theorem quadratic_trace_diagonal_exists (a : Fˣ) : Nonempty (QuadraticTraceDiagonal a) := by
   let m : F →ₗ[ℚ] F := LinearMap.mul ℚ F (a : F)
   let B : LinearMap.BilinForm ℚ F := (Algebra.traceForm ℚ F).compLeft m

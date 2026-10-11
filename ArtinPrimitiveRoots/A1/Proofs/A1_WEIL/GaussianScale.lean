@@ -96,7 +96,7 @@ private theorem quadraticIntegral_mul_scale (A : AddCharData F) (v : FinPlace F)
           rfl
 
 /-- Change the variable in stabilized integrals by multiplication by a local unit.
-Guide: PROOFS.md:468–470. Uses: local_haar_scale; local_character_regular; W.stable. -/
+Uses: local_haar_scale; local_character_regular; W.stable. -/
 theorem stable_value_square_scale (D : FieldData F) (A : AddCharData F) (W : LocalGaussianData A)
     (v : FinPlace F) (a b : (v.adicCompletion F)ˣ) :
     W.stableValue v (a * b ^ 2) =

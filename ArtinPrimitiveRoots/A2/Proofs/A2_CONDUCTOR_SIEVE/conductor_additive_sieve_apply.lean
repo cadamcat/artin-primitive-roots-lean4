@@ -129,7 +129,7 @@ set_option maxHeartbeats 1000000
 /-- The dual additive large sieve for the exact residue fractions on one exterior
 dyad, uniform in the chosen primitive additive characters. Balancing uses the actual
 number-field degree and both real and complex places. The norm-one dyad is T=1.
-Guide: sol-thin-a2zf/PROOFS.md:720–732 (general-field extension of lem_additive_sieve).
+General-field extension of lem_additive_sieve.
 Uses balanced generator compactness and distinct reduced fractions; feeds exterior dyad glue. -/
 theorem conductor_additive_sieve_apply (S : A1.SData F CE condη)
     (G : ConductorGenerators S) (ρ : ConductorResidues S)

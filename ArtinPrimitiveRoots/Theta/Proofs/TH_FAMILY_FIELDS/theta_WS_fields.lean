@@ -84,7 +84,6 @@ private theorem thetaFamilyDeriv_left_scalar {P : CoverPackage D S H A}
   exact hfold (Finset.univ : Finset (InfinitePlace F)).toList g
 
 /-- Retain S-unipotent equivariance and genuineness of the normalized derivative Whittaker coefficient.
-Guide: sol-thin-thglobal/PROOFS.md:1188–1190,1200–1204.
 Uses thetaWhit_equiv, thetaFamilyDeriv and differentiation of scalar multiples. -/
 theorem theta_WS_fields {P : CoverPackage D S H A}
     {N : ThetaNormalizationInput P} {𝓛 : Finset (SChar S)}

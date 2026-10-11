@@ -54,7 +54,6 @@ bounded (continuous, compact support) and vanishes unless `(diag m).1 ∈ Cf := 
 `le_seminorm`) gives `‖Φ y‖ ≤ c (1 + ‖y‖)^{-M}`, M = finrank ℚ F + 1; and for `x ∈ C`,
 `1 + ‖m_∞‖ ≤ (1 + ‖x_∞‖)(1 + ‖x_∞ + m_∞‖)` (Peetre), so `b m = c' · indicator · (1+‖m_∞‖)^{-M}`,
 summable by `a1_fourier_lattice_summable`.
-Guide: `runs/lanes/sol-thin-a1/PROOFS.md` 188–190 (explicit majorant).
 Uses: `a1_fourier_lattice_summable`. Used by: the glue of `SData.poisson` (`A1/SLattice.lean`). -/
 theorem a1_fourier_tensor_majorant (S : SData F CE condη) (D : FieldData F)
     (g : S.FS → ℂ) (hg : S.IsFSTensorSum g) (C : Set S.FS) (hC : IsCompact C) :

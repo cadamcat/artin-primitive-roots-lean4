@@ -29,7 +29,6 @@ private structure ContinuedEisLocalDecomp {P : CoverPackage D S H A} {G : Global
 
 /-- Choose the uniform finite level and common finite components, decompose each component
 into cusps, and restrict all spectral continuations to the same radius at most `1/12`.
-Guide: `runs/lanes/sol-thin-thglobal/PROOFS.md:786–796`.
 Uses frozen `scalarOf_q`, `exists_classical_components`, `red_decompose`,
 `Spec.exists_continuedEisenstein` and proved `Spec.ContinuedEisenstein.exists_restrict`.
 Consumed by component reconstruction and frozen `exists_continuedEis`. -/

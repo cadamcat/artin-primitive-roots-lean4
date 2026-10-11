@@ -66,7 +66,7 @@ private theorem quadratic_binary_norm_cross {K G : Type*} [Field K] [CommGroup G
 
 /-- The quadratic multiplicative defect is constant under multiplication by a nonzero
 binary norm. All Gaussian identities are explicit hypotheses; no analytic comparison is
-assumed. Guide: PROOFS.md:474–475 and LEAD-ROUTES.md's norm-coset argument. -/
+assumed. -/
 theorem quadratic_defect_binary_norm_invariant {K G : Type*} [Field K] [CommGroup G]
     (w : Kˣ → G) (i : Kˣ) (hi : (i : K) ^ 2 = -1)
     (hsquare : ∀ a c, w (a * c ^ 2) = w a)

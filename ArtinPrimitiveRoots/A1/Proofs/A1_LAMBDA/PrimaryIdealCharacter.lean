@@ -23,7 +23,7 @@ private def angularZeroHom : ℂ →*₀ ℂ where
     field_simp [norm_ne_zero_iff.mpr hz, norm_ne_zero_iff.mpr hw]
 
 /-- A1-LAMBDA IMPL: Compose OAI.CompletedGauss.primaryGeneratorHom with the zero-preserving normalized angular map; norm_mul also handles zero.
-Guide: sol-thin-a1/PROOFS.md:428-439. Uses: Definitions. -/
+Uses: Definitions. -/
 theorem primary_ideal_character_exists (σ : E →+* ℂ) :
     ∃ φ : Ideal OE →*₀ ℂ, ∀ I : Ideal OE,
       φ I = integerComplex σ (primary I) / ‖integerComplex σ (primary I)‖ := by

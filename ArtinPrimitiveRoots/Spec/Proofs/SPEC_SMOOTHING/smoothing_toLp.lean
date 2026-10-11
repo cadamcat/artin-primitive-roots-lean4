@@ -10,7 +10,7 @@ namespace ArtinPrimitiveRoots.A1.Spec
 variable {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
 
 /-- Transport the bounded continuous value map to L2 of the compact image in X, retaining its
-representative. Guide: `sol-thin-spec/PROOFS.md:409`. Uses `smoothing_uniform_eval_bound`
+representative. Uses `smoothing_uniform_eval_bound`
 at order zero, `smoothing_smooth_representative`, and frozen `G1_h3_basics`, `G3_volume`.
 Supplies the compact Lp conjunct of frozen `S1_smoothing`. -/
 theorem smoothing_toLp (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]

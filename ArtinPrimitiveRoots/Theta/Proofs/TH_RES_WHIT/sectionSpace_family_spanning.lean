@@ -20,7 +20,6 @@ variable {P : CoverPackage D S H A} {G : GlobalDatum P}
 /-- Every local section at s0 is a finite linear combination of s0 values of analytic global
 families with that place inserted and the exterior sections held fixed. Translated big-cell
 families first match the value at 1; section_eq_bigCell supplies the remaining section.
-Guide: sol-thin-thglobal/PROOFS.md:915–922.
 Uses: analyticFamily_bigCell_rtr, section_eq_bigCell, bigCell_apply and compact open local balls.
 Feeds: theta_lambda_descent, theta_lambda_whittaker, thetaWhit_section_multilinear. -/
 theorem sectionSpace_family_spanning (Fam : AnalyticFamily P G μ) (v0 : FinPlace F)

@@ -3,8 +3,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».BatchSupport
 import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».DeletionSupport
 import ArtinPrimitiveRoots.TypeII.Proofs.«PD-LOW».SignSupport
 
-/-! Positive ghost choice rows with prescribed births (guide
-`runs/lanes/sol-thin-pd5/PROOFS.md:151–243`). Ported from the checked pd5-lead drafts. -/
+/-! Positive ghost choice rows with prescribed births. -/
 
 set_option maxHeartbeats 800000
 set_option backward.isDefEq.respectTransparency false

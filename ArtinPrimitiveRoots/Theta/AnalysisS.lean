@@ -941,7 +941,7 @@ private theorem real_rpow_zpow_mul (a T : ℝ) (ha : 0 < a) (hT : 0 < T)
 /-- **lem:sheet-profile**, convolution part: for a kernel with all moments finite, both
 convolutions `∫𝒦(T)H(uT^{±1})dT/T` and their absolute majorants obey the two-ended bound; and
 eq:sheet-absolute-sum. C9 of `sol-gate-theta` keeps the already C-infinity `SheetHypC` input.
-Kernel measurability is required per `sol-thin-thglobal` for dominated differentiation. -/
+Kernel measurability is required for dominated differentiation. -/
 theorem sheet_profile_convolution [IsTotallyComplex F] (μ : ∀ v : FinPlace F, LocHaar v)
     (v0 : InfinitePlace F) (δ : ℝ) (hδ : 0 < δ) (J : ℕ)
     (ff : Fin J → (v : S.Sf) → v.1.adicCompletion F → ℂ) (fc : Fin J → InfinitePlace F → ℂ → ℂ)

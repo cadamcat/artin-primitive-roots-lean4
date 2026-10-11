@@ -5,7 +5,6 @@ import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MOBIUS».S2
 /-!
 # A2-QS-CANCEL, part C4: the residual block bound (assembly)
 
-Guide: `runs/lanes/sol-thin-found/PROOFS.md:528-550` (`optimized_high_core` for general `κ`).
 Columns in `(n, 2n]` with `n ≥ 1` exclude `⊤`, so every coprime pair has `c d ≠ ⊤` and S2
 applies; sum S2 over pairs (`qsPairSum` is linear in the kernel), replace the main difference by
 the boundary kernel (C1), bound it by C2b, `qs_norm_symm_M0` and `HasExponent α`

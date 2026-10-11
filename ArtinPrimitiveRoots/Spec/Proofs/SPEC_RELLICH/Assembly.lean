@@ -15,7 +15,7 @@ namespace ArtinPrimitiveRoots.A1.Spec
 variable {F : Type} [Field F] [NumberField F]
 
 /-- Recombination has the original localized complex representative on the test graph.
-Guide: runs/lanes/sol-thin-spec/PROOFS.md:320. Uses the two test-chart mass
+Uses the two test-chart mass
 representatives and the extension identities; this is the representative glue for T6. -/
 theorem rellich_recombine_test_rep
     (Γ : Subgroup SL(2,𝓞 F)) (D : Set (X F))

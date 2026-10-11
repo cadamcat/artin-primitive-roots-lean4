@@ -13,7 +13,7 @@ variable {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
 
 /-- A compact support and an arbitrary open coordinate neighborhood admit a smaller
 open neighborhood with compact closure and only finitely many intersecting translates.
-Guide: sol-thin-spec/PROOFS.md:207–208. Uses G1_h3_basics and
+Uses G1_h3_basics and
 compact_overlap_finite_SL2O; exported for periodization and kernel integrals. -/
 theorem local_finite_overlap (Γ : Subgroup SL(2,𝓞 F))
     (K : Set (X F)) (hK : IsCompact K) (V : Set (X F)) (hV : IsOpen V)

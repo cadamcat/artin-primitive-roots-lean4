@@ -23,7 +23,7 @@ noncomputable section
 
 /-- Symmetry and quantitative bounds for birth-twisted ghosts and full edges. The edge proof
 must use positive raw-plus-comparison choice sums before subtraction; a signed-kernel bound
-alone is insufficient. Guide `runs/lanes/sol-thin-pd5/PROOFS.md:657–770`; uses memorySym,
+alone is insufficient. Uses memorySym,
 finite weighted Schur, ghost sign parity, and the positive edge row/column estimates.
 Feeds low-rank iteration and frozen history_rank_low. LEAD. -/
 theorem pd5_modified_ops_symmetry_domination (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁)

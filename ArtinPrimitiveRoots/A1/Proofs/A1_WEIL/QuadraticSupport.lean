@@ -12,7 +12,7 @@ namespace ArtinPrimitiveRoots.Proofs.a1_weil_sol
 /-- A nonsquare coefficient separates the two quadratic pushforward supports near one.
 The unscaled square preimage has positive finite Haar measure, whereas the scaled square
 preimage is empty. This is the support test needed for the actual Gaussian nondegeneracy
-argument in PROOFS.md:474–475. No Gaussian or Fourier identity is assumed. -/
+argument. No Gaussian or Fourier identity is assumed. -/
 theorem nonsquare_quadratic_support_test {K : Type*} [NormedField K] [ProperSpace K]
     [MeasurableSpace K] [BorelSpace K] (μ : Measure K) [Measure.IsAddHaarMeasure μ]
     (a : Kˣ) (ha : ¬ IsSquare (a : K)) :

@@ -8,7 +8,7 @@ namespace ArtinPrimitiveRoots.Splitting
 open ClassFieldTheory ArtinPrimitiveRoots.Hecke
 
 /-- Finite deleted-prime corrections are analytic and nonzero on `Re s > 0`.
-Guide: ../sol-thin-s7/PROOFS.md:398–417. Uses positive prime norms and complex
+Uses positive prime norms and complex
 powers; feeds `upstairs_rhp_euler_identity` and `quotient_factor_of_euler_identity`. -/
 theorem finite_euler_correction_analytic (T : Type*) [Field T] [NumberField T]
     (S : Finset (HeightOneSpectrum (𝓞 T))) :

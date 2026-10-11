@@ -21,7 +21,7 @@ local instance measurableGaussianModulus (v : FinPlace F) : MeasurableSpace (v.a
 local instance borelGaussianModulus (v : FinPlace F) : BorelSpace (v.adicCompletion F) := ⟨rfl⟩
 
 /-- The ratio modulus with arbitrary Haar normalization; all constants cancel against I(1).
-Guide: PROOFS.md:466–468. Uses: local_haar_scale; finite Fubini; character orthogonality. -/
+Uses: local_haar_scale; finite Fubini; character orthogonality. -/
 theorem stable_quadratic_integral_modulus (A : AddCharData F) (v : FinPlace F) (μ : Measure (v.adicCompletion F))
     (hμ : Measure.IsAddHaarMeasure μ) (hψ : LocalCharacterRegular A v)
     (a : (v.adicCompletion F)ˣ) (N M : ℕ)

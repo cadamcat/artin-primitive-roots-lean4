@@ -8,7 +8,7 @@ noncomputable section
 namespace ArtinPrimitiveRoots.Splitting
 
 /-- The native splitting-field algebra over the cyclotomic base is abelian.
-Guide: ../sol-thin-s7/PROOFS.md:366–397; arithmetic prerequisite for the
+Arithmetic prerequisite for the
 specialization of the general Euler core. Uses the Kummer splitting-field lemmas
 and the fact that the base contains the qth roots of unity. Feeds
 `sp_upstairs_factor`, whose frozen Artin target uses this native algebra.

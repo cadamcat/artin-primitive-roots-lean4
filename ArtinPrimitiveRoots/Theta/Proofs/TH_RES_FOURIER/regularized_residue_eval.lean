@@ -11,7 +11,7 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
   {H : HilbertData F} {A : AddCharData F}
 
 /-- Evaluate a regularized identity after continuation from the convergence ball.
-Guide: sol-thin-thglobal/PROOFS.md:835–845. Uses analytic_residue_unique.
+Uses analytic_residue_unique.
 This is the analytic assembly step owned by the lead in theta_constantTerm. -/
 theorem regularized_residue_eval (η : ℝ) (hη : 0 < η) (hηle : η ≤ (1 / 6 : ℝ))
     (f B : ℂ → ℂ) (r : ℂ)

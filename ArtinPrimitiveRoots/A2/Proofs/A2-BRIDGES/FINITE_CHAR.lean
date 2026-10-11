@@ -66,7 +66,7 @@ private lemma bridge_count_spanSingleton_eq_neg_log_valuation (v : FinPlace F)
   ring
 
 /-- Construct the actual residue multiplicative characters and primitive additive phase.
-Guide: sol-thin-a2rp/PROOFS.md:63–64. Uses SYMBOL and AddCharData.unramified.
+Uses SYMBOL and AddCharData.unramified.
 Power zero is the unit mask because the target is MulChar. -/
 theorem a2_bridge_FINITE_CHAR (D : FieldData F) (S : SData F CE condη)
     (A : AddCharData F) (v : FinPlace F) (hv : v ∉ S.Sf)
@@ -598,7 +598,7 @@ theorem a2_bridge_FINITE_CHAR (D : FieldData F) (S : SData F CE condη)
   · exact ⟨ψchar, hψprim, hψMulFormula⟩
 
 /-- Finite additive orthogonality with no finsum ambiguity.
-Guide: sol-thin-a2rp/PROOFS.md:63–64. Uses FINITE_CHAR; Mathlib AddChar orthogonality. -/
+Uses FINITE_CHAR; Mathlib AddChar orthogonality. -/
 theorem a2_bridge_FINITE_CHAR_orthogonality (v : FinPlace F) :
     letI := bridgeResidueField v
     letI := bridgeResidueFintype v
@@ -626,7 +626,7 @@ theorem a2_bridge_FINITE_CHAR_orthogonality (v : FinPlace F) :
     exact AddChar.sum_eq_zero_of_ne_one hψne
 
 /-- Rewrite every finite residue finsum as the actual univ sum.
-Guide: sol-thin-a2rp/PROOFS.md:63–64. Uses bridgeResidueFintype. -/
+Uses bridgeResidueFintype. -/
 theorem a2_bridge_FINITE_CHAR_finsum (v : FinPlace F) (f : (𝓞 F ⧸ v.asIdeal) → ℂ) :
     letI := bridgeResidueFintype v
     (∑ᶠ x, f x) = ∑ x : 𝓞 F ⧸ v.asIdeal, f x := by

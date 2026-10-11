@@ -23,7 +23,7 @@ local instance unitBorelSpace (v : FinPlace F) :
     BorelSpace (v.adicCompletion F) := ⟨rfl⟩
 
 /-- Local units have trivial index at odd unramified-character exterior places.
-Guide: PROOFS.md:473–477. Uses: A.unramified; S.over6; S.different_mem; actual shell cancellation. -/
+Uses: A.unramified; S.over6; S.different_mem; actual shell cancellation. -/
 theorem exterior_local_index_unit (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
     (W : LocalGaussianData A) (v : FinPlace F) (hv : v ∉ S.Sf) (a : Fˣ)
     (ha : FractionalIdeal.count F v

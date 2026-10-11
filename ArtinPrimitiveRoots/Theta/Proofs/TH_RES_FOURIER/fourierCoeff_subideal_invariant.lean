@@ -14,7 +14,7 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
 
 /-- Normalized nonzero-frequency residue coefficients agree on an adapted ideal and any
 nonzero subideal, including different bounded null-measurable domain choices.
-Guide: sol-thin-thglobal/PROOFS.md:855–861. Uses torusCoeff_analytic,
+Uses torusCoeff_analytic,
 analytic_residue_unique, and eisenstein_whittaker. Feeds the choice independence in thetaWhit. -/
 theorem fourierCoeff_subideal_invariant {P : CoverPackage D S H A} {G : GlobalDatum P}
     {μ : ∀ v : FinPlace F, LocHaar v} {sec : ∀ s : ℂ, GlobalSection P G s}
