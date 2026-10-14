@@ -3,8 +3,8 @@ import Mathlib
 /-!
 # Target: the infinitude assertion of Artin's primitive root conjecture
 
-JSP-000027 asks whether each fixed integer that is neither `-1` nor a perfect square is a
-primitive root modulo infinitely many primes.
+The infinitude assertion of Artin's conjecture: each fixed integer that is neither `-1` nor a
+perfect square is a primitive root modulo infinitely many primes.
 
 `S` is copied verbatim from Formal Conjectures,
 `FormalConjectures/Wikipedia/ArtinPrimitiveRootsConjecture.lean`

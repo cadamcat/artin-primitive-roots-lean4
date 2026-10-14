@@ -1,7 +1,7 @@
 import Mathlib
 
 /-!
-# P-SPEC interface (draft for freezing; JSP-000027, A1 route C, 2026-10-07)
+# P-SPEC interface
 
 Spectral input of route C, narrowed to what
 P-RES / P-REDUCTION / P-EIS / P-ASSEMBLE consume (cited below by node ID `spec:*`).
