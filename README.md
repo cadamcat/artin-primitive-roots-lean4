@@ -6,7 +6,7 @@ Every integer other than −1 that is not a perfect square is a primitive root m
 
 - **Author:** Yao Xu ([@cadamcat](https://github.com/cadamcat)); see [authors and attribution](AUTHORS.md).
 - **Mathematical result:** OpenAI, [*Primitive roots for every admissible integer base*](https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/Primitive-roots-for-every-admissible-integer-base-October-4-2026/primitive-roots-all-integer-bases.pdf).
-- Developed with AI assistance (Claude Code, Codex, Antigravity, OpenCode and Grok CLI); all proofs are verified by the Lean 4 kernel.
+- Developed with AI assistance; all proofs are verified by the Lean 4 kernel.
 
 ## Main result
 
